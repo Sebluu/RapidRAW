@@ -46,11 +46,7 @@ jobs:
       - name: Changed file formatting
         if: success() || failure()
         run: npx prettier --check src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx src/components/panel/Editor.tsx src/store/useEditorStore.ts src/components/ui/AppProperties.tsx docs/targeted-curves.md
-      - name: Capture formatted source for review (no source writes to GitHub)
-        if: success() || failure()
-        run: |
-          npx prettier --write src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx src/store/useEditorStore.ts docs/targeted-curves.md
-          node scripts/print-formatted-files.mjs
+
 
   rust:
     name: Rust — format & cargo check

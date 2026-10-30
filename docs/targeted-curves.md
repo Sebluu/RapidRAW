@@ -28,7 +28,7 @@ Provide a Lightroom-like targeted curve picker: select Luma/R/G/B in the Curves 
 
 ## Known prototype limitations
 
-The active UI is currently mouse-oriented; sampled response latency can make immediate click-drag interaction inconsistent. The baseline and gesture lifecycle require end-to-end testing. The tiny ROI render still invokes the general GPU processing path (including auxiliary texture handling), so *one-pixel readback* does not imply constant-time sampling. Curve points may be inserted even if users release the click before the async response, intentionally allowing click-only picking. Existing point hit proximity and endpoint handling require testing.
+The active UI is currently mouse-oriented; sampled response latency can make immediate click-drag interaction inconsistent. The baseline and gesture lifecycle require end-to-end testing. The tiny ROI render still invokes the general GPU processing path (including auxiliary texture handling), so _one-pixel readback_ does not imply constant-time sampling. Curve points may be inserted even if users release the click before the async response, intentionally allowing click-only picking. Existing point hit proximity and endpoint handling require testing.
 
 Potential follow-up: dedicated pre-curve sample compute kernel reading cached intermediate textures, or a cached pre-curve preview if performance warrants it. This should be justified by benchmarks rather than introduced preemptively.
 

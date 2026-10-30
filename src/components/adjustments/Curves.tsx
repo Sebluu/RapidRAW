@@ -301,8 +301,13 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const isParametricMode = curveMode === 'parametric';
   const pickerActive = pickerChannel === activeChannel && !isParametricMode;
   useEffect(() => {
-    if (!curvePick || curvePick.channel !== activeChannel || isParametricMode ||
-        appliedPickSequence.current === curvePick.sequence) return;
+    if (
+      !curvePick ||
+      curvePick.channel !== activeChannel ||
+      isParametricMode ||
+      appliedPickSequence.current === curvePick.sequence
+    )
+      return;
     appliedPickSequence.current = curvePick.sequence;
     const x = curvePick.tone;
     if (!Number.isFinite(x) || !Number.isFinite(curvePick.delta)) return;
@@ -883,10 +888,22 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
-          <button type="button" disabled={isParametricMode} aria-label="Targeted curve picker"
-            aria-pressed={pickerActive} title="Pick a tone on the image"
+          <button
+            type="button"
+            disabled={isParametricMode}
+            aria-label="Targeted curve picker"
+            aria-pressed={pickerActive}
+            title="Pick a tone on the image"
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-accent text-white' : 'bg-surface-secondary text-text-secondary'}`}
-            onClick={() => setEditor({ curvePickerChannel: pickerActive ? null : activeChannel, curvePick: null, isWbPickerActive: false, isRelightPickerActive: false })}>
+            onClick={() =>
+              setEditor({
+                curvePickerChannel: pickerActive ? null : activeChannel,
+                curvePick: null,
+                isWbPickerActive: false,
+                isRelightPickerActive: false,
+              })
+            }
+          >
             <Pipette size={16} />
           </button>
           {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
@@ -898,7 +915,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => { setActiveChannel(channel); if (pickerChannel) setEditor({ curvePickerChannel: channel, curvePick: null }); }}
+                onClick={() => {
+                  setActiveChannel(channel);
+                  if (pickerChannel) setEditor({ curvePickerChannel: channel, curvePick: null });
+                }}
                 type="button"
                 style={{
                   backgroundColor:
