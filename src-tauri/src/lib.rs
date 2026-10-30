@@ -662,8 +662,8 @@ fn sample_curve_tone(
         .as_ref()
         .cloned()
         .ok_or("Preview is not ready")?;
-    if preview.transform_hash != transform_hash {
-        return Err("Preview geometry is not ready for sampling".into());
+    if preview.source_path != image_path || preview.transform_hash != transform_hash {
+        return Err("Preview for selected image is not ready for sampling".into());
     }
 
     let (width, height) = preview.image.dimensions();
