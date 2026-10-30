@@ -615,7 +615,6 @@ async fn release_original_preview(state: tauri::State<'_, AppState>) -> Result<(
     .map_err(|e| format!("Task panicked: {}", e))
 }
 
-
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 struct CurveToneSample {
@@ -644,15 +643,25 @@ fn sample_curve_tone(
         return Err("Invalid curve channel".into());
     }
 
-    let loaded = state.original_image.lock().unwrap()
-        .as_ref().cloned().ok_or("No image loaded")?;
+    let loaded = state
+        .original_image
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .ok_or("No image loaded")?;
     if loaded.path != image_path {
         return Err("Image changed while sampling".into());
     }
     hydrate_adjustments(&state, &mut js_adjustments);
     let transform_hash = calculate_transform_hash(&js_adjustments);
-    let preview = state.cached_preview_for(PreviewTarget::Editor)
-        .lock().unwrap().as_ref().cloned().ok_or("Preview is not ready")?;
+    let preview = state
+        .cached_preview_for(PreviewTarget::Editor)
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .ok_or("Preview is not ready")?;
     if preview.transform_hash != transform_hash {
         return Err("Preview geometry is not ready for sampling".into());
     }
@@ -667,7 +676,8 @@ fn sample_curve_tone(
     let settings = load_settings(app_handle.clone()).unwrap_or_default();
     let render_options = resolve_render_options(&settings, loaded.is_raw);
     let context = get_or_init_gpu_context(&state, &app_handle)?;
-    let defs: Vec<MaskDefinition> = js_adjustments.get("masks")
+    let defs: Vec<MaskDefinition> = js_adjustments
+        .get("masks")
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
     let masks = get_cached_or_generate_masks(
@@ -684,10 +694,14 @@ fn sample_curve_tone(
         &js_adjustments,
     );
     let mut gpu_adjustments = get_all_adjustments_from_json(
-        &js_adjustments, loaded.is_raw, loaded.as_shot, render_options,
+        &js_adjustments,
+        loaded.is_raw,
+        loaded.as_shot,
+        render_options,
     );
     gpu_adjustments.curve_sample_mode = if channel == "luma" { 1 } else { 2 };
-    let lut = js_adjustments["lutPath"].as_str()
+    let lut = js_adjustments["lutPath"]
+        .as_str()
         .and_then(|path| lut_processing::get_or_load_lut(&state, path).ok());
     let generation = state.load_image_generation.load(Ordering::SeqCst);
     let sampled = process_and_get_dynamic_image(
@@ -700,12 +714,21 @@ fn sample_curve_tone(
             mask_bitmaps: &masks.bitmaps,
             mask_cache_key: Some(masks.cache_key ^ generation as u64),
             lut,
-            roi: Some(gpu_processing::Roi { x: px, y: py, width: 1, height: 1 }),
+            roi: Some(gpu_processing::Roi {
+                x: px,
+                y: py,
+                width: 1,
+                height: 1,
+            }),
         },
         "sample_curve_tone",
     )?;
     let pixel = sampled.to_rgba8().get_pixel(0, 0).0;
-    Ok(CurveToneSample { r: pixel[0], g: pixel[1], b: pixel[2] })
+    Ok(CurveToneSample {
+        r: pixel[0],
+        g: pixel[1],
+        b: pixel[2],
+    })
 }
 
 #[allow(clippy::too_many_arguments)]

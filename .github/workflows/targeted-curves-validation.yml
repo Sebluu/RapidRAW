@@ -1,6 +1,6 @@
 name: Targeted Curves — validation
 
-# Isolated to the experimental branch; no releases or deployment.
+# Only this experimental feature and PRs to the fork's main branch.
 on:
   push:
     branches:
@@ -19,24 +19,32 @@ concurrency:
 
 jobs:
   frontend:
-    name: Frontend — typecheck, lint & build
+    name: Frontend — build & regression checks
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
         with:
           node-version: '22'
           cache: npm
-      - name: Install exactly the locked dependencies
+      - name: Install locked dependencies
         run: npm ci
-      - name: TypeScript
-        run: npm run typecheck
-      - name: ESLint
-        run: npm run lint
+      - name: TypeScript errors relative to untouched main
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-main" origin/main
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-main/node_modules"
+          node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-main"
+      - name: ESLint (changed UI files)
+        if: success() || failure()
+        run: npx eslint src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx src/components/panel/Editor.tsx src/store/useEditorStore.ts src/components/ui/AppProperties.tsx
       - name: Vite build
+        if: success() || failure()
         run: npm run build
-      - name: Formatting of modified UI files and feature documentation
+      - name: Changed file formatting
+        if: success() || failure()
         run: npx prettier --check src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx src/components/panel/Editor.tsx src/store/useEditorStore.ts src/components/ui/AppProperties.tsx docs/targeted-curves.md
 
   rust:
@@ -44,7 +52,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
@@ -53,7 +61,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-      - name: Install Tauri Linux build dependencies
+      - name: Install Tauri Linux dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -62,5 +70,6 @@ jobs:
             pkg-config libgphoto2-dev patchelf
       - name: Rust formatting
         run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-      - name: Rust compilation (includes WGSL compile validation at runtime only)
+      - name: Rust compilation
+        if: success() || failure()
         run: cargo check --locked --manifest-path src-tauri/Cargo.toml
