@@ -88,6 +88,7 @@ interface ImageCanvasProps {
   uncroppedAdjustedPreviewUrl: string | null;
   updateSubMask(id: string | null, subMask: Partial<SubMask>): void;
   isWbPickerActive?: boolean;
+  curvePickerChannel?: 'luma' | 'red' | 'green' | 'blue' | null;
   onWbPicked?: () => void;
   setAdjustments(fn: (prev: Adjustments) => Adjustments): void;
   overlayMode?: OverlayMode;
@@ -1468,6 +1469,7 @@ const ImageCanvas = memo(
     uncroppedAdjustedPreviewUrl,
     updateSubMask,
     isWbPickerActive = false,
+    curvePickerChannel = null,
     onWbPicked,
     setAdjustments,
     overlayRotation,
@@ -1479,6 +1481,9 @@ const ImageCanvas = memo(
     hasRenderedFirstFrame,
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
+    const curveRequest = useRef(0);
+    const curveSequence = useRef(0);
+    const curveDrag = useRef<{ channel: 'luma' | 'red' | 'green' | 'blue'; tone: number; startY: number; baseline: number } | null>(null);
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
     const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
@@ -2424,6 +2429,11 @@ const ImageCanvas = memo(
       resetWbSample();
     }, [isWbPickerActive, selectedImage.path, resetWbSample]);
 
+    useEffect(() => {
+      curveRequest.current++;
+      curveDrag.current = null;
+    }, [curvePickerChannel, selectedImage.path]);
+
     const handleStart = useCallback(
       (e: any) => {
         if (e.evt && typeof e.evt.button === 'number' && e.evt.button !== 0) {
@@ -2432,6 +2442,31 @@ const ImageCanvas = memo(
 
         if (e.evt && e.evt.cancelable) e.evt.preventDefault();
 
+        if (curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal) {
+          const pos = getCanvasPointer(e.target.getStage());
+          if (!isInsideImage(pos)) return;
+          const uv = mapCanvasPointToUv(pos);
+          const seq = ++curveRequest.current;
+          const channel = curvePickerChannel;
+          const startY = e.evt?.clientY ?? 0;
+          void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
+            imagePath: selectedImage.path, x: uv.x, y: uv.y, channel, jsAdjustments: adjustments,
+          }).then((sample) => {
+            if (seq !== curveRequest.current) return;
+            const tone = channel === 'luma'
+              ? (0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b)
+              : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
+            const points = useEditorStore.getState().adjustments.curves[channel];
+            const idx = points.findIndex((p) => p.x >= tone);
+            const rightIndex = idx < 0 ? points.length - 1 : idx;
+            const left = points[Math.max(0, rightIndex - 1)];
+            const right = points[rightIndex];
+            const baseline = right.x > left.x ? left.y + (right.y-left.y)*(tone-left.x)/(right.x-left.x) : right.y;
+            curveDrag.current = { channel, tone, startY, baseline };
+            setEditor({ curvePick: { channel, tone, delta: 0, sequence: ++curveSequence.current } });
+          }).catch((err) => console.error('Curve sampling failed:', err));
+          return;
+        }
         if (isGuidedPerspectiveActive && isCropping) {
           if (e.target === e.target.getStage()) {
             const stage = e.target.getStage();
@@ -2662,6 +2697,12 @@ const ImageCanvas = memo(
       [
         isGuidedPerspectiveActive,
         isCropping,
+        curvePickerChannel,
+        showOriginal,
+        selectedImage.path,
+        setEditor,
+        mapCanvasPointToUv,
+        isInsideImage,
         mapScreenToUv,
         isRelightPickerActive,
         activeRelightLightId,
@@ -2722,6 +2763,14 @@ const ImageCanvas = memo(
           }
         }
 
+        if (curvePickerChannel && curveDrag.current) {
+          const drag = curveDrag.current;
+          const y = e.evt?.clientY ?? drag.startY;
+          const target = Math.max(0, Math.min(255, drag.baseline + (drag.startY-y) * 255 / Math.max(1, imageRenderSize.height)));
+          setEditor({ curvePick: { channel: drag.channel, tone: drag.tone,
+            delta: target - drag.baseline, sequence: ++curveSequence.current } });
+          return;
+        }
         if (isWbPickerActive) {
           const drag = wbDragRef.current;
           if (drag && isDrawing.current) {
@@ -2978,6 +3027,7 @@ const ImageCanvas = memo(
     );
 
     const handleUp = useCallback(() => {
+      if (curvePickerChannel) { curveDrag.current = null; return; }
       if (!isDrawing.current) {
         return;
       }
@@ -3362,6 +3412,7 @@ const ImageCanvas = memo(
     };
 
     const effectiveCursor = useMemo(() => {
+      if (curvePickerChannel) return 'crosshair';
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';
       if (isRelightPickerActive) return 'crosshair';
       if (isWbPickerActive) {
@@ -3394,6 +3445,7 @@ const ImageCanvas = memo(
     }, [
       isGuidedPerspectiveActive,
       isCropping,
+      curvePickerChannel,
       isRelightPickerActive,
       isWbPickerActive,
       wbBox,
@@ -3623,7 +3675,7 @@ const ImageCanvas = memo(
             </div>
           </div>
 
-          {(isMasking || isAiEditing || isWbPickerActive || showRelightLights || showCenterMarker) &&
+          {(isMasking || isAiEditing || isWbPickerActive || curvePickerChannel || showRelightLights || showCenterMarker) &&
             stageWidth > 0 &&
             stageHeight > 0 && (
               <div
