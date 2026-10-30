@@ -289,7 +289,6 @@ export interface Adjustments {
   chromaticAberrationBlueYellow: number;
   chromaticAberrationRedCyan: number;
   colorCalibration: ColorCalibration;
-  colorHarmony: ColorHarmonySettings;
   colorGrading: ColorGradingProps;
   colorHarmony: ColorHarmonySettings;
   colorNoiseReduction: number;
@@ -531,6 +530,7 @@ export interface MaskAdjustments {
   brightness: number;
   clarity: number;
   colorGrading: ColorGradingProps;
+  colorHarmony: ColorHarmonySettings;
   colorNoiseReduction: number;
   contrast: number;
   curves: Curves;
