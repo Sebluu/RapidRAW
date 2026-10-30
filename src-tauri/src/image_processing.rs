@@ -1881,7 +1881,6 @@ pub struct MaskAdjustments {
     pub color_harmony: ColorHarmonyGpu,
 }
 
-
 /** GPU-packed colour harmony parameters (64 bytes). The node hues are turns. */
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
@@ -1896,7 +1895,8 @@ pub struct ColorHarmonyGpu {
 
 fn parse_color_harmony(adj: &serde_json::Value) -> ColorHarmonyGpu {
     if !is_tool_active(adj, "colorHarmonizer")
-        || adj["colorHarmony"]["enabled"].as_bool() != Some(true) {
+        || adj["colorHarmony"]["enabled"].as_bool() != Some(true)
+    {
         return ColorHarmonyGpu::default();
     }
 
@@ -1905,7 +1905,10 @@ fn parse_color_harmony(adj: &serde_json::Value) -> ColorHarmonyGpu {
         params: [
             obj["strength"].as_f64().unwrap_or(0.0).clamp(0.0, 1.0) as f32,
             obj["width"].as_f64().unwrap_or(1.0).clamp(0.25, 4.0) as f32,
-            obj["neutralProtection"].as_f64().unwrap_or(0.5).clamp(0.0, 1.0) as f32,
+            obj["neutralProtection"]
+                .as_f64()
+                .unwrap_or(0.5)
+                .clamp(0.0, 1.0) as f32,
             1.0,
         ],
         ..Default::default()
@@ -1915,12 +1918,14 @@ fn parse_color_harmony(adj: &serde_json::Value) -> ColorHarmonyGpu {
     let n = angles.map_or(2, |nodes| nodes.len().clamp(1, 4));
     config.count = n as u32;
     for i in 0..n {
-        let angle = angles.and_then(|list| list.get(i))
+        let angle = angles
+            .and_then(|list| list.get(i))
             .and_then(|item| item.as_f64())
             .filter(|angle| angle.is_finite())
             .unwrap_or(*defaults.get(i).unwrap_or(&0.0));
         config.nodes[i] = (angle.rem_euclid(360.0) / 360.0) as f32;
-        config.saturation[i] = obj["nodeSaturation"].get(i)
+        config.saturation[i] = obj["nodeSaturation"]
+            .get(i)
             .and_then(|value| value.as_f64())
             .filter(|sat| sat.is_finite())
             .unwrap_or(1.0)
@@ -4767,36 +4772,51 @@ fn compute_white_balance_sample(
     })
 }
 
-
 #[tauri::command]
 pub fn sample_color_harmony_histogram(
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<f32>, String> {
     // Read only a bounded sample of the geometry-corrected *source* preview.
     // Do not rerender the image or read the GPU on every wheel interaction.
-    let loaded = state.original_image.lock().unwrap()
-        .as_ref().cloned().ok_or("No image loaded")?;
-    let preview = state.cached_preview_for(crate::app_state::PreviewTarget::Editor)
-        .lock().unwrap().as_ref().cloned().ok_or("Preview not ready")?;
+    let loaded = state
+        .original_image
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .ok_or("No image loaded")?;
+    let preview = state
+        .cached_preview_for(crate::app_state::PreviewTarget::Editor)
+        .lock()
+        .unwrap()
+        .as_ref()
+        .cloned()
+        .ok_or("Preview not ready")?;
     let image = preview.image;
     let (width, height) = image.dimensions();
-    if width == 0 || height == 0 { return Err("Empty preview".into()); }
+    if width == 0 || height == 0 {
+        return Err("Empty preview".into());
+    }
 
     let stride = (((width as f64 * height as f64) / 65_000.0).sqrt().ceil() as u32).max(1);
     let mut histogram = vec![0.0_f32; 72];
     for y in (0..height).step_by(stride as usize) {
         for x in (0..width).step_by(stride as usize) {
-            let Some(rgb) = read_linear_rgb(&image, x, y, loaded.is_raw) else { continue };
+            let Some(rgb) = read_linear_rgb(&image, x, y, loaded.is_raw) else {
+                continue;
+            };
             let r = rgb[0].max(0.0);
             let g = rgb[1].max(0.0);
             let b = rgb[2].max(0.0);
-            let l = (0.4122214708*r + 0.5363325363*g + 0.0514459929*b).cbrt();
-            let m = (0.2119034982*r + 0.6806995451*g + 0.1073969566*b).cbrt();
-            let s = (0.0883024619*r + 0.2817188376*g + 0.6299787005*b).cbrt();
-            let a = 1.9779984951*l - 2.4285922050*m + 0.4505937099*s;
-            let b2 = 0.0259040371*l + 0.7827717662*m - 0.8086757660*s;
+            let l = (0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b).cbrt();
+            let m = (0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b).cbrt();
+            let s = (0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b).cbrt();
+            let a = 1.9779984951 * l - 2.4285922050 * m + 0.4505937099 * s;
+            let b2 = 0.0259040371 * l + 0.7827717662 * m - 0.8086757660 * s;
             let chroma = a.hypot(b2);
-            if chroma <= 0.01 { continue }
+            if chroma <= 0.01 {
+                continue;
+            }
             let hue = b2.atan2(a).to_degrees().rem_euclid(360.0);
             let idx = (hue / 5.0) as usize % 72;
             histogram[idx] += chroma;
@@ -4804,7 +4824,9 @@ pub fn sample_color_harmony_histogram(
     }
     let max = histogram.iter().copied().fold(0.0_f32, f32::max);
     if max > 0.0 {
-        histogram.iter_mut().for_each(|value| *value = (*value / max).sqrt());
+        histogram
+            .iter_mut()
+            .for_each(|value| *value = (*value / max).sqrt());
     }
     Ok(histogram)
 }

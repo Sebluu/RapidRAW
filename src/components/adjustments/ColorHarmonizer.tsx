@@ -34,7 +34,13 @@ function wedge(start: number, end: number, inner: number, outer: number): string
 }
 
 function Range({
-  title, value, min, max, step, onChange, display,
+  title,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+  display,
 }: {
   title: string;
   value: number;
@@ -96,7 +102,9 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
       .finally(() => {
         if (!cancelled) setSampling(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedPath, previewReady]);
 
   const update = useCallback(
@@ -161,20 +169,27 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
     onDragStateChange?.(false);
   };
 
-  useEffect(() => () => {
-    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
-    onDragStateChange?.(false);
-  }, [onDragStateChange]);
+  useEffect(
+    () => () => {
+      if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+      onDragStateChange?.(false);
+    },
+    [onDragStateChange],
+  );
 
-  const bars = useMemo(() => Array.from({ length: 72 }, (_, i) => {
-    const hue = i * 5;
-    const magnitude = histogram[i] ?? 0;
-    return { hue, d: wedge(hue - 2.35, hue + 2.35, 59, 63 + magnitude * 30) };
-  }), [histogram]);
+  const bars = useMemo(
+    () =>
+      Array.from({ length: 72 }, (_, i) => {
+        const hue = i * 5;
+        const magnitude = histogram[i] ?? 0;
+        return { hue, d: wedge(hue - 2.35, hue + 2.35, 59, 63 + magnitude * 30) };
+      }),
+    [histogram],
+  );
 
   const matchDominant = () => {
     if (histogram.length !== 72) return;
-    const index = histogram.reduce((best, v, i) => v > histogram[best] ? i : best, 0);
+    const index = histogram.reduce((best, v, i) => (v > histogram[best] ? i : best), 0);
     update((current) => rotateHarmony(current, index * 5 + 2.5));
   };
 
@@ -204,13 +219,19 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
           className="min-w-0 rounded-lg bg-surface border border-border px-2.5 py-2 text-xs text-text-primary"
         >
           {HARMONY_RULES.map((rule) => (
-            <option key={rule} value={rule}>{t(`adjustments.colorHarmonizer.rules.${rule}`)}</option>
+            <option key={rule} value={rule}>
+              {t(`adjustments.colorHarmonizer.rules.${rule}`)}
+            </option>
           ))}
         </select>
         <button
           type="button"
           aria-label={t('adjustments.colorHarmonizer.unlink')}
-          title={harmony.rule === 'custom' ? t('adjustments.colorHarmonizer.unlinked') : t('adjustments.colorHarmonizer.linked')}
+          title={
+            harmony.rule === 'custom'
+              ? t('adjustments.colorHarmonizer.unlinked')
+              : t('adjustments.colorHarmonizer.linked')
+          }
           onClick={() => chooseRule(harmony.rule === 'custom' ? 'complementary' : 'custom')}
           className="flex items-center justify-center rounded-lg bg-surface border border-border w-9 h-9 text-text-secondary hover:text-text-primary"
         >
@@ -229,47 +250,114 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
           onPointerUp={endDrag}
           onPointerCancel={endDrag}
         >
-          <circle cx={CENTER} cy={CENTER} r={108} fill="none" stroke="currentColor" strokeOpacity={0.09} strokeWidth={1} />
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={108}
+            fill="none"
+            stroke="currentColor"
+            strokeOpacity={0.09}
+            strokeWidth={1}
+          />
           {Array.from({ length: 72 }, (_, i) => (
-            <path key={`spectrum-${i}`} d={wedge(i * 5 - 2.6, i * 5 + 2.6, 97, 104)}
-              fill={hueColor(i * 5)} opacity={0.9} />
+            <path
+              key={`spectrum-${i}`}
+              d={wedge(i * 5 - 2.6, i * 5 + 2.6, 97, 104)}
+              fill={hueColor(i * 5)}
+              opacity={0.9}
+            />
           ))}
           {bars.map(({ hue, d }) => (
             <path key={`hist-${hue}`} d={d} fill={hueColor(hue)} opacity={histogram.length ? 0.75 : 0.12} />
           ))}
           {harmony.nodes.map((hue, i) => {
-            const spread = Math.min(85, Math.max(7, harmony.width * 90 / count));
+            const spread = Math.min(85, Math.max(7, (harmony.width * 90) / count));
             return (
-              <path key={`zone-${i}`} d={wedge(hue - spread, hue + spread, 28, 55)}
-                fill={hueColor(hue)} fillOpacity={0.23}
-                stroke={hueColor(hue)} strokeOpacity={0.65} strokeWidth={0.8} />
+              <path
+                key={`zone-${i}`}
+                d={wedge(hue - spread, hue + spread, 28, 55)}
+                fill={hueColor(hue)}
+                fillOpacity={0.23}
+                stroke={hueColor(hue)}
+                strokeOpacity={0.65}
+                strokeWidth={0.8}
+              />
             );
           })}
-          <circle cx={CENTER} cy={CENTER} r={27} fill="currentColor" fillOpacity={0.035}
-            onPointerDown={(e) => startDrag(e, 'rotate')} className="cursor-grab" />
-          <text x={CENTER} y={CENTER - 3} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.65}
-            pointerEvents="none">{harmony.rule === 'custom' ? t('adjustments.colorHarmonizer.free') : t('adjustments.colorHarmonizer.rotate')}</text>
-          <text x={CENTER} y={CENTER + 10} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.7}
-            pointerEvents="none">{count} {t('adjustments.colorHarmonizer.nodes')}</text>
+          <circle
+            cx={CENTER}
+            cy={CENTER}
+            r={27}
+            fill="currentColor"
+            fillOpacity={0.035}
+            onPointerDown={(e) => startDrag(e, 'rotate')}
+            className="cursor-grab"
+          />
+          <text
+            x={CENTER}
+            y={CENTER - 3}
+            textAnchor="middle"
+            fontSize={10}
+            fill="currentColor"
+            opacity={0.65}
+            pointerEvents="none"
+          >
+            {harmony.rule === 'custom'
+              ? t('adjustments.colorHarmonizer.free')
+              : t('adjustments.colorHarmonizer.rotate')}
+          </text>
+          <text
+            x={CENTER}
+            y={CENTER + 10}
+            textAnchor="middle"
+            fontSize={10}
+            fill="currentColor"
+            opacity={0.7}
+            pointerEvents="none"
+          >
+            {count} {t('adjustments.colorHarmonizer.nodes')}
+          </text>
           {harmony.nodes.map((hue, i) => {
             const [cx, cy] = point(hue, 82);
             return (
-              <g key={`node-${i}`} onPointerDown={(e) => startDrag(e, i)}
-                className="cursor-grab">
+              <g key={`node-${i}`} onPointerDown={(e) => startDrag(e, i)} className="cursor-grab">
                 <circle cx={cx} cy={cy} r={15} fill="transparent" />
-                <circle cx={cx} cy={cy} r={9} fill={hueColor(hue)} stroke="white" strokeWidth={2}
-                  style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.38))' }} />
-                <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={9} fontWeight={700}
-                  pointerEvents="none" fill="black">{i + 1}</text>
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={9}
+                  fill={hueColor(hue)}
+                  stroke="white"
+                  strokeWidth={2}
+                  style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.38))' }}
+                />
+                <text
+                  x={cx}
+                  y={cy + 3.5}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={700}
+                  pointerEvents="none"
+                  fill="black"
+                >
+                  {i + 1}
+                </text>
               </g>
             );
           })}
         </svg>
         <div className="mt-1 flex justify-between gap-1 text-[10px] text-text-secondary">
-          <span>{sampling ? t('adjustments.colorHarmonizer.sampling') : t('adjustments.colorHarmonizer.histogram')}</span>
-          <button type="button" className="flex items-center gap-1 hover:text-text-primary disabled:opacity-40"
-            disabled={histogram.length === 0} onClick={matchDominant}>
-            <Sparkles size={12} />{t('adjustments.colorHarmonizer.match')}
+          <span>
+            {sampling ? t('adjustments.colorHarmonizer.sampling') : t('adjustments.colorHarmonizer.histogram')}
+          </span>
+          <button
+            type="button"
+            className="flex items-center gap-1 hover:text-text-primary disabled:opacity-40"
+            disabled={histogram.length === 0}
+            onClick={matchDominant}
+          >
+            <Sparkles size={12} />
+            {t('adjustments.colorHarmonizer.match')}
           </button>
         </div>
       </div>
@@ -279,60 +367,107 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
           <span className="text-text-secondary">{t('adjustments.colorHarmonizer.nodeCount')}</span>
           <div className="inline-flex rounded-lg bg-surface p-0.5 gap-0.5">
             {[2, 3, 4].map((n) => (
-              <button key={n} type="button" aria-pressed={count === n}
+              <button
+                key={n}
+                type="button"
+                aria-pressed={count === n}
                 className={`w-8 h-7 rounded-md tabular-nums transition-colors ${count === n ? 'bg-card-active text-text-primary font-semibold' : 'text-text-secondary'}`}
-                onClick={() => update((current) => ({
-                  ...current,
-                  nodes: Array.from({ length: n }, (_, i) => current.nodes[i] ?? wrapHue(current.anchor + i * 360 / n)),
-                }))}>{n}</button>
+                onClick={() =>
+                  update((current) => ({
+                    ...current,
+                    nodes: Array.from(
+                      { length: n },
+                      (_, i) => current.nodes[i] ?? wrapHue(current.anchor + (i * 360) / n),
+                    ),
+                  }))
+                }
+              >
+                {n}
+              </button>
             ))}
           </div>
         </div>
       )}
 
       <div className="flex flex-col gap-3 border-t border-border pt-3">
-        <Range title={t('adjustments.colorHarmonizer.strength')} value={harmony.strength}
-          min={0} max={1} step={0.01} display={`${Math.round(harmony.strength * 100)}%`}
-          onChange={(strength) => update((v) => ({ ...v, strength }))} />
-        <Range title={t('adjustments.colorHarmonizer.width')} value={harmony.width}
-          min={0.25} max={4} step={0.05} display={harmony.width.toFixed(2)}
-          onChange={(width) => update((v) => ({ ...v, width }))} />
-        <Range title={t('adjustments.colorHarmonizer.neutral')} value={harmony.neutralProtection}
-          min={0} max={1} step={0.01} display={`${Math.round(harmony.neutralProtection * 100)}%`}
-          onChange={(neutralProtection) => update((v) => ({ ...v, neutralProtection }))} />
+        <Range
+          title={t('adjustments.colorHarmonizer.strength')}
+          value={harmony.strength}
+          min={0}
+          max={1}
+          step={0.01}
+          display={`${Math.round(harmony.strength * 100)}%`}
+          onChange={(strength) => update((v) => ({ ...v, strength }))}
+        />
+        <Range
+          title={t('adjustments.colorHarmonizer.width')}
+          value={harmony.width}
+          min={0.25}
+          max={4}
+          step={0.05}
+          display={harmony.width.toFixed(2)}
+          onChange={(width) => update((v) => ({ ...v, width }))}
+        />
+        <Range
+          title={t('adjustments.colorHarmonizer.neutral')}
+          value={harmony.neutralProtection}
+          min={0}
+          max={1}
+          step={0.01}
+          display={`${Math.round(harmony.neutralProtection * 100)}%`}
+          onChange={(neutralProtection) => update((v) => ({ ...v, neutralProtection }))}
+        />
       </div>
 
       <div className="border-t border-border pt-2">
-        <button type="button" className="w-full flex items-center justify-between text-xs text-text-secondary py-1"
-          aria-expanded={showSaturation} onClick={() => setShowSaturation((v) => !v)}>
+        <button
+          type="button"
+          className="w-full flex items-center justify-between text-xs text-text-secondary py-1"
+          aria-expanded={showSaturation}
+          onClick={() => setShowSaturation((v) => !v)}
+        >
           {t('adjustments.colorHarmonizer.saturation')}
           <ChevronDown size={15} className={`transition-transform ${showSaturation ? 'rotate-180' : ''}`} />
         </button>
-        {showSaturation && <div className="flex flex-col gap-3 pt-2">
-          {harmony.nodes.map((hue, index) => (
-            <div key={index} className="flex items-center gap-2">
-              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: hueColor(hue) }} />
-              <div className="grow">
-                <Range title={`${t('adjustments.colorHarmonizer.node')} ${index + 1}`}
-                  min={0} max={2} step={0.01} value={harmony.nodeSaturation[index] ?? 1}
-                  display={`${Math.round((harmony.nodeSaturation[index] ?? 1) * 100)}%`}
-                  onChange={(saturation) => update((v) => {
-                    const nodeSaturation = [...v.nodeSaturation];
-                    nodeSaturation[index] = saturation;
-                    return { ...v, nodeSaturation };
-                  })} />
+        {showSaturation && (
+          <div className="flex flex-col gap-3 pt-2">
+            {harmony.nodes.map((hue, index) => (
+              <div key={index} className="flex items-center gap-2">
+                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: hueColor(hue) }} />
+                <div className="grow">
+                  <Range
+                    title={`${t('adjustments.colorHarmonizer.node')} ${index + 1}`}
+                    min={0}
+                    max={2}
+                    step={0.01}
+                    value={harmony.nodeSaturation[index] ?? 1}
+                    display={`${Math.round((harmony.nodeSaturation[index] ?? 1) * 100)}%`}
+                    onChange={(saturation) =>
+                      update((v) => {
+                        const nodeSaturation = [...v.nodeSaturation];
+                        nodeSaturation[index] = saturation;
+                        return { ...v, nodeSaturation };
+                      })
+                    }
+                  />
+                </div>
               </div>
-            </div>
-          ))}
-        </div>}
+            ))}
+          </div>
+        )}
       </div>
 
-      <button type="button" className="flex items-center justify-center gap-1.5 self-end rounded-md px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
-        onClick={() => update(() => ({
-          ...DEFAULT_COLOR_HARMONY,
-          nodes: [...DEFAULT_COLOR_HARMONY.nodes],
-          nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation],
-        }))}>
+      <button
+        type="button"
+        className="flex items-center justify-center gap-1.5 self-end rounded-md px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+        onClick={() =>
+          update(() => ({
+            ...DEFAULT_COLOR_HARMONY,
+            nodes: [...DEFAULT_COLOR_HARMONY.nodes],
+            nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation],
+          }))
+        }
+      >
         <RotateCcw size={13} /> {t('adjustments.colorHarmonizer.reset')}
       </button>
     </div>

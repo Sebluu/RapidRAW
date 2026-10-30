@@ -9,6 +9,7 @@ Status: **development prototype; compilation, color correctness, GPU render, and
 The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a separate collapsible editing section, disabled by default, with the same React component and `colorHarmony` settings model for global adjustments and individual mask containers.
 
 The interface has nine palette patterns plus a custom mode:
+
 - Monochromatic (1 node)
 - Analogous (3)
 - Analogous + complementary (4)
@@ -30,17 +31,18 @@ In Rust, `parse_color_harmony` validates and clamps parameters before writing a 
 
 The WGSL processing function converts linear sRGB to OKLab, derives OKLCH hue/chroma, chooses the nearest harmony node using a Gaussian angular falloff, pulls hue toward that node, attenuates the effect on low-chroma pixels, applies the winning node's independent saturation multiplier, and converts back to linear sRGB. Global adjustments are applied after creative color and before color grading. Mask adjustments blend after global and mask color grading using the mask's existing influence texture.
 
-There is **no full-resolution CPU color-conversion pass**. Only the open panel's hue-distribution preview is calculated by sampling up to roughly 65,000 pixels of the cached, geometry-corrected source preview (72 bins, chroma weighted). This analysis is intentionally decoupled from live GPU grading and is *not* an exact post-adjustment histogram. It is recomputed on opening another image, not on every drag or slider update.
+There is **no full-resolution CPU color-conversion pass**. Only the open panel's hue-distribution preview is calculated by sampling up to roughly 65,000 pixels of the cached, geometry-corrected source preview (72 bins, chroma weighted). This analysis is intentionally decoupled from live GPU grading and is _not_ an exact post-adjustment histogram. It is recomputed on opening another image, not on every drag or slider update.
 
 The wheel pointer handler batches adjustment changes with `requestAnimationFrame`. It uses pointer capture for mouse/pen/touch drags and informs the existing interactive-render system via `onDragStateChange`.
 
 ## Relationship to darktable
 
 Design, attraction principle, preset set and UI affordances studied from:
+
 - https://github.com/darktable-org/darktable/blob/master/src/iop/colorharmonizer.c
 - https://docs.darktable.org/usermanual/development/en/module-reference/processing-modules/color-harmonizer/
 
-darktable's Color Harmonizer operates in **darktable UCS/JCH** and uses an **RYB hue conversion** for predefined harmony templates. RapidRAW currently uses **OKLab/OKLCH**, with template offsets expressed directly in OKLCH angular degrees. The perceptual color coordinates and resulting output cannot be pixel-identical. We do *not* embed darktable's color-space conversion code or import the GPL-licensed C implementation. The algorithm was written for RapidRAW's GPU pipeline using publicly documented color science and the documented nearest-node Gaussian attraction principle. Preserve this acknowledgement in any upstream PR; review the licenses (darktable GPLv3, RapidRAW AGPLv3) if any direct port is considered.
+darktable's Color Harmonizer operates in **darktable UCS/JCH** and uses an **RYB hue conversion** for predefined harmony templates. RapidRAW currently uses **OKLab/OKLCH**, with template offsets expressed directly in OKLCH angular degrees. The perceptual color coordinates and resulting output cannot be pixel-identical. We do _not_ embed darktable's color-space conversion code or import the GPL-licensed C implementation. The algorithm was written for RapidRAW's GPU pipeline using publicly documented color science and the documented nearest-node Gaussian attraction principle. Preserve this acknowledgement in any upstream PR; review the licenses (darktable GPLv3, RapidRAW AGPLv3) if any direct port is considered.
 
 darktable's optional **spatial smoothing** is **not implemented** in this first version: adding a second full-image GPU processing/blur path without performance measurements would violate the feature's zero-overhead-off requirement. Its neutral default behaviour is covered without that parameter.
 
@@ -49,7 +51,7 @@ darktable's optional **spatial smoothing** is **not implemented** in this first 
 - [ ] `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
 - [ ] `cargo check --locked --manifest-path src-tauri/Cargo.toml`
 - [ ] `npm run build`; no new TypeScript/ESLint diagnostics relative to main
-- [ ] Check the *runtime* WGSL validator and 64-byte Rust/WGSL layout; `cargo check` alone does **not** validate shader execution
+- [ ] Check the _runtime_ WGSL validator and 64-byte Rust/WGSL layout; `cargo check` alone does **not** validate shader execution
 - [ ] Test each palette rule at multiple rotations and arbitrary 2/3/4 custom nodes, including hue wraparound at 0/360°
 - [ ] Verify the default disabled + strength-zero state reproduces original pixels
 - [ ] Test global operation and mask-specific operation, opacity/inversion, mask creation, delete, duplication, undo/redo, save/reopen, presets, copy/paste, 8-bit/16-bit export
@@ -61,10 +63,10 @@ darktable's optional **spatial smoothing** is **not implemented** in this first 
 
 ## Known limitations / follow-ups
 
-- The internal source histogram is intentionally *not* a live, pre-harmonizer after-other-edits vectorscope. Accurate stage-correct live scope needs a dedicated measured GPU/analytics pass (not yet implemented).
+- The internal source histogram is intentionally _not_ a live, pre-harmonizer after-other-edits vectorscope. Accurate stage-correct live scope needs a dedicated measured GPU/analytics pass (not yet implemented).
 - Spatial correction smoothing, optional automatic best-harmony-rule search, and anchor eyedropper are omitted pending correctness/performance review.
 - Tests on actual hardware, manual visual review, and export parity have not yet been completed.
-- The *other branch*'s targeted-curve pipette uses global interaction state and still needs explicit mask scoping; it is **not** implicitly mask-aware simply because the curves component is shared.
+- The _other branch_'s targeted-curve pipette uses global interaction state and still needs explicit mask scoping; it is **not** implicitly mask-aware simply because the curves component is shared.
 
 ## Upstream strategy
 

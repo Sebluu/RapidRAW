@@ -497,9 +497,16 @@ export interface MonochromeToning {
 }
 
 export type HarmonyRule =
-  | 'monochromatic' | 'analogous' | 'analogousComplementary'
-  | 'complementary' | 'splitComplementary' | 'dyad'
-  | 'triad' | 'tetrad' | 'square' | 'custom';
+  | 'monochromatic'
+  | 'analogous'
+  | 'analogousComplementary'
+  | 'complementary'
+  | 'splitComplementary'
+  | 'dyad'
+  | 'triad'
+  | 'tetrad'
+  | 'square'
+  | 'custom';
 
 export interface ColorHarmonySettings {
   enabled: boolean;
@@ -643,7 +650,11 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   brightness: 0,
   clarity: 0,
   colorGrading: { ...INITIAL_COLOR_GRADING },
-  colorHarmony: { ...DEFAULT_COLOR_HARMONY, nodes: [...DEFAULT_COLOR_HARMONY.nodes], nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation] },
+  colorHarmony: {
+    ...DEFAULT_COLOR_HARMONY,
+    nodes: [...DEFAULT_COLOR_HARMONY.nodes],
+    nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation],
+  },
   colorNoiseReduction: 0,
   contrast: 0,
   curves: getDefaultCurves(),

@@ -1197,8 +1197,7 @@ fn shader_features(adjustments: &AllAdjustments) -> u32 {
     };
     set(
         F_COLOR_HARMONY,
-        harmony_active(&g.color_harmony)
-            || masks.iter().any(|m| harmony_active(&m.color_harmony)),
+        harmony_active(&g.color_harmony) || masks.iter().any(|m| harmony_active(&m.color_harmony)),
     );
     features
 }

@@ -1,9 +1,16 @@
 import type { ColorHarmonySettings, HarmonyRule } from './adjustments';
 
 export const HARMONY_RULES: HarmonyRule[] = [
-  'monochromatic', 'analogous', 'analogousComplementary',
-  'complementary', 'splitComplementary', 'dyad', 'triad',
-  'tetrad', 'square', 'custom',
+  'monochromatic',
+  'analogous',
+  'analogousComplementary',
+  'complementary',
+  'splitComplementary',
+  'dyad',
+  'triad',
+  'tetrad',
+  'square',
+  'custom',
 ];
 
 // Angles in perceptual OKLCH hue space. Unlike darktable's RYB guides these
