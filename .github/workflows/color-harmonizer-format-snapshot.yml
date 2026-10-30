@@ -1,0 +1,33 @@
+name: Color Harmonizer — formatting snapshot
+on:
+  push:
+    branches:
+      - feature/color-harmonizer
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+      - run: npm ci
+      - name: Format touched files without committing
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml
+          npx prettier --write src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json docs/color-harmonizer.md
+      - name: Emit exact formatted files for review
+        run: |
+          for file in src-tauri/src/image_processing.rs src-tauri/src/gpu_processing.rs src-tauri/src/lib.rs src/components/adjustments/ColorHarmonizer.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/store/useUIStore.ts docs/color-harmonizer.md; do
+            echo "FORMATTED_START $file"
+            base64 -w0 "$file" | fold -w 2500 | sed 's/^/FORMATTED_CHUNK /'
+            echo "FORMATTED_END $file"
+          done
