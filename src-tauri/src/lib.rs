@@ -615,6 +615,99 @@ async fn release_original_preview(state: tauri::State<'_, AppState>) -> Result<(
     .map_err(|e| format!("Task panicked: {}", e))
 }
 
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CurveToneSample {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+/// Sample exactly one transformed preview pixel immediately before its target
+/// curve. Reuses the GPU pipeline, cached preview and mask/LUT setup; never
+/// roundtrips the whole rendered image to JavaScript.
+#[tauri::command]
+fn sample_curve_tone(
+    app_handle: tauri::AppHandle,
+    state: tauri::State<'_, AppState>,
+    image_path: String,
+    x: f32,
+    y: f32,
+    channel: String,
+    mut js_adjustments: Value,
+) -> Result<CurveToneSample, String> {
+    if !x.is_finite() || !y.is_finite() || !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
+        return Err("Sample coordinates must be in [0, 1]".into());
+    }
+    if !matches!(channel.as_str(), "luma" | "red" | "green" | "blue") {
+        return Err("Invalid curve channel".into());
+    }
+
+    let loaded = state.original_image.lock().unwrap()
+        .as_ref().cloned().ok_or("No image loaded")?;
+    if loaded.path != image_path {
+        return Err("Image changed while sampling".into());
+    }
+    hydrate_adjustments(&state, &mut js_adjustments);
+    let transform_hash = calculate_transform_hash(&js_adjustments);
+    let preview = state.cached_preview_for(PreviewTarget::Editor)
+        .lock().unwrap().as_ref().cloned().ok_or("Preview is not ready")?;
+    if preview.transform_hash != transform_hash {
+        return Err("Preview geometry is not ready for sampling".into());
+    }
+
+    let (width, height) = preview.image.dimensions();
+    if width == 0 || height == 0 {
+        return Err("Empty preview".into());
+    }
+    let px = ((x * width as f32).floor() as u32).min(width - 1);
+    let py = ((y * height as f32).floor() as u32).min(height - 1);
+
+    let settings = load_settings(app_handle.clone()).unwrap_or_default();
+    let render_options = resolve_render_options(&settings, loaded.is_raw);
+    let context = get_or_init_gpu_context(&state, &app_handle)?;
+    let defs: Vec<MaskDefinition> = js_adjustments.get("masks")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    let masks = get_cached_or_generate_masks(
+        &state,
+        &loaded.path,
+        &defs,
+        width,
+        height,
+        preview.scale,
+        (
+            preview.unscaled_crop_offset.0 * preview.scale,
+            preview.unscaled_crop_offset.1 * preview.scale,
+        ),
+        &js_adjustments,
+    );
+    let mut gpu_adjustments = get_all_adjustments_from_json(
+        &js_adjustments, loaded.is_raw, loaded.as_shot, render_options,
+    );
+    gpu_adjustments.curve_sample_mode = if channel == "luma" { 1 } else { 2 };
+    let lut = js_adjustments["lutPath"].as_str()
+        .and_then(|path| lut_processing::get_or_load_lut(&state, path).ok());
+    let generation = state.load_image_generation.load(Ordering::SeqCst);
+    let sampled = process_and_get_dynamic_image(
+        &context,
+        &state,
+        &preview.image,
+        transform_hash,
+        RenderRequest {
+            adjustments: gpu_adjustments,
+            mask_bitmaps: &masks.bitmaps,
+            mask_cache_key: Some(masks.cache_key ^ generation as u64),
+            lut,
+            roi: Some(gpu_processing::Roi { x: px, y: py, width: 1, height: 1 }),
+        },
+        "sample_curve_tone",
+    )?;
+    let pixel = sampled.to_rgba8().get_pixel(0, 0).0;
+    Ok(CurveToneSample { r: pixel[0], g: pixel[1], b: pixel[2] })
+}
+
 #[allow(clippy::too_many_arguments)]
 fn process_preview_job(
     app_handle: &tauri::AppHandle,
@@ -2743,6 +2836,7 @@ pub fn run() {
             export_processing::estimate_export_sizes,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
+            sample_curve_tone,
             auto_straighten::calculate_auto_straighten,
             file_management::apply_auto_straighten_to_paths,
             mask_generation::generate_mask_overlay,
