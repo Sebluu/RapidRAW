@@ -4774,6 +4774,7 @@ fn compute_white_balance_sample(
 
 #[tauri::command]
 pub fn sample_color_harmony_histogram(
+    image_path: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<f32>, String> {
     // Read only a bounded sample of the geometry-corrected *source* preview.
@@ -4785,6 +4786,9 @@ pub fn sample_color_harmony_histogram(
         .as_ref()
         .cloned()
         .ok_or("No image loaded")?;
+    if loaded.path != image_path {
+        return Err("Requested image is not loaded yet".into());
+    }
     let preview = state
         .cached_preview_for(crate::app_state::PreviewTarget::Editor)
         .lock()
@@ -4792,6 +4796,9 @@ pub fn sample_color_harmony_histogram(
         .as_ref()
         .cloned()
         .ok_or("Preview not ready")?;
+    if preview.source_path != image_path {
+        return Err("Preview for requested image is not ready yet".into());
+    }
     let image = preview.image;
     let (width, height) = image.dimensions();
     if width == 0 || height == 0 {

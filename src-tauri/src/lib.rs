@@ -689,7 +689,7 @@ fn process_preview_job(
 
     let base_valid = cached_preview_lock
         .as_ref()
-        .is_some_and(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
+        .is_some_and(|c| c.source_path == loaded_image.path && c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
     let small_valid = base_valid
         && cached_preview_lock
             .as_ref()
@@ -744,6 +744,7 @@ fn process_preview_job(
     };
 
     *cached_preview_lock = Some(CachedPreview {
+        source_path: loaded_image.path.clone(),
         image: Arc::clone(&final_preview_base),
         small_image: Arc::clone(&small_preview_base),
         transform_hash: new_transform_hash,

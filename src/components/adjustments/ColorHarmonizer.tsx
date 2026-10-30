@@ -74,8 +74,6 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const { t } = useTranslation();
   const harmony: ColorHarmonySettings = adjustments.colorHarmony ?? DEFAULT_COLOR_HARMONY;
   const selectedPath = useEditorStore((state) => state.selectedImage?.path);
-  const previewReady = useEditorStore((state) => Boolean(state.finalPreviewUrl || state.hasRenderedFirstFrame));
-  const sampledImageRef = useRef<string | null>(null);
   const wheelRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ index: number | 'rotate'; pointer: number } | null>(null);
   const pendingHueRef = useRef<number | null>(null);
@@ -85,27 +83,45 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const [sampling, setSampling] = useState(false);
 
   useEffect(() => {
-    if (!selectedPath || !previewReady || sampledImageRef.current === selectedPath) return;
-    sampledImageRef.current = selectedPath;
+    // Image selection can precede Rust's transformed preview by several
+    // frames. Query the *requested* image identity and retry only while that
+    // particular preview is loading. Never display a previous image's bins.
+    setHistogram([]);
+    if (!selectedPath) {
+      setSampling(false);
+      return;
+    }
     let cancelled = false;
+    let retryTimer: ReturnType<typeof setTimeout> | undefined;
+    let attempts = 0;
     setSampling(true);
-    invoke<number[]>(Invokes.SampleColorHarmonyHistogram)
-      .then((bins) => {
-        if (!cancelled) setHistogram(bins.length === 72 ? bins : []);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          sampledImageRef.current = null;
-          setHistogram([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setSampling(false);
-      });
+
+    const sample = () => {
+      void invoke<number[]>(Invokes.SampleColorHarmonyHistogram, { imagePath: selectedPath })
+        .then((bins) => {
+          if (cancelled) return;
+          setHistogram(bins.length === 72 ? bins : []);
+          setSampling(false);
+        })
+        .catch((error) => {
+          if (cancelled) return;
+          // When the photo changes, the cached preview is not immediately
+          // available. A few low-cost identity checks are cheaper than
+          // processing a full preview and avoid polling on every render.
+          if (++attempts < 35) {
+            retryTimer = setTimeout(sample, 200);
+          } else {
+            console.warn('Color harmony histogram unavailable:', error);
+            setSampling(false);
+          }
+        });
+    };
+    sample();
     return () => {
       cancelled = true;
+      if (retryTimer !== undefined) clearTimeout(retryTimer);
     };
-  }, [selectedPath, previewReady]);
+  }, [selectedPath]);
 
   const update = useCallback(
     (change: (current: ColorHarmonySettings) => ColorHarmonySettings) => {
