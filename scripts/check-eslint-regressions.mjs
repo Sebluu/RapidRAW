@@ -4,6 +4,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
 
 const [feature, baseline] = process.argv.slice(2);
 const files = [
@@ -17,7 +18,8 @@ const files = [
 ];
 function inspect(directory) {
   const cmd = path.join(directory, 'node_modules', 'eslint', 'bin', 'eslint.js');
-  const proc = spawnSync(process.execPath, [cmd, '--format', 'json', ...files], {
+  const existingFiles = files.filter((file) => existsSync(path.join(directory, file)));
+  const proc = spawnSync(process.execPath, [cmd, '--format', 'json', ...existingFiles], {
     cwd: directory, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
   });
   if (proc.error || (proc.status !== 0 && proc.status !== 1)) {
