@@ -289,7 +289,9 @@ export interface Adjustments {
   chromaticAberrationBlueYellow: number;
   chromaticAberrationRedCyan: number;
   colorCalibration: ColorCalibration;
+  colorHarmony: ColorHarmonySettings;
   colorGrading: ColorGradingProps;
+  colorHarmony: ColorHarmonySettings;
   colorNoiseReduction: number;
   contrast: number;
   curves: Curves;
@@ -495,6 +497,33 @@ export interface MonochromeToning {
   shadowSaturation: number;
 }
 
+export type HarmonyRule =
+  | 'monochromatic' | 'analogous' | 'analogousComplementary'
+  | 'complementary' | 'splitComplementary' | 'dyad'
+  | 'triad' | 'tetrad' | 'square' | 'custom';
+
+export interface ColorHarmonySettings {
+  enabled: boolean;
+  rule: HarmonyRule;
+  anchor: number; // degrees, perceptual OKLCH
+  nodes: number[]; // degrees; persisted for exact shader/UI sync
+  nodeSaturation: number[];
+  strength: number;
+  width: number;
+  neutralProtection: number;
+}
+
+export const DEFAULT_COLOR_HARMONY: ColorHarmonySettings = {
+  enabled: false,
+  rule: 'complementary',
+  anchor: 0,
+  nodes: [0, 180],
+  nodeSaturation: [1, 1, 1, 1],
+  strength: 0,
+  width: 1,
+  neutralProtection: 0.5,
+};
+
 export interface MaskAdjustments {
   activeTools: ActiveTools;
   [index: string]: any;
@@ -542,6 +571,7 @@ export interface MaskContainer {
 export interface Sections {
   [index: string]: Array<string>;
   basic: Array<string>;
+  colorHarmonizer: Array<string>;
   curves: Array<string>;
   color: Array<string>;
   details: Array<string>;
@@ -613,6 +643,7 @@ export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
   brightness: 0,
   clarity: 0,
   colorGrading: { ...INITIAL_COLOR_GRADING },
+  colorHarmony: { ...DEFAULT_COLOR_HARMONY, nodes: [...DEFAULT_COLOR_HARMONY.nodes], nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation] },
   colorNoiseReduction: 0,
   contrast: 0,
   curves: getDefaultCurves(),
@@ -736,6 +767,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
         halationAmount: containerAdjustments.halationAmount ?? INITIAL_MASK_ADJUSTMENTS.halationAmount,
         hue: containerAdjustments.hue ?? INITIAL_MASK_ADJUSTMENTS.hue,
         colorGrading: { ...INITIAL_MASK_ADJUSTMENTS.colorGrading, ...(containerAdjustments.colorGrading || {}) },
+        colorHarmony: { ...DEFAULT_COLOR_HARMONY, ...(containerAdjustments.colorHarmony || {}) },
         hsl: { ...INITIAL_MASK_ADJUSTMENTS.hsl, ...(containerAdjustments.hsl || {}) },
         curves: containerAdjustments.curves ? deepCloneCurves(containerAdjustments.curves) : getDefaultCurves(),
         pointCurves: containerAdjustments.pointCurves
@@ -832,6 +864,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
     transformYOffset: loadedAdjustments.transformYOffset ?? INITIAL_ADJUSTMENTS.transformYOffset,
     colorCalibration: { ...INITIAL_ADJUSTMENTS.colorCalibration, ...(loadedAdjustments.colorCalibration || {}) },
     colorGrading: { ...INITIAL_ADJUSTMENTS.colorGrading, ...(loadedAdjustments.colorGrading || {}) },
+    colorHarmony: { ...DEFAULT_COLOR_HARMONY, ...(loadedAdjustments.colorHarmony || {}) },
     hsl: { ...INITIAL_ADJUSTMENTS.hsl, ...(loadedAdjustments.hsl || {}) },
     monochromeMix: { ...INITIAL_ADJUSTMENTS.monochromeMix, ...(loadedAdjustments.monochromeMix || {}) },
     monochromeToning: { ...INITIAL_ADJUSTMENTS.monochromeToning, ...(loadedAdjustments.monochromeToning || {}) },
@@ -864,6 +897,7 @@ export interface AdjustmentGroup {
 }
 
 export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
+  colorHarmonizer: [{ label: 'adjustments.colorHarmonizer.title', keys: ['colorHarmony'] }],
   basic: [
     { label: 'adjustments.basic.toneMapper', keys: ['toneMapper'] },
     { label: 'adjustments.basic.exposure', keys: [BasicAdjustment.Exposure] },
@@ -1066,6 +1100,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     'toneMapper',
   ],
   curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
+  colorHarmonizer: ['colorHarmony'],
   color: [
     ColorAdjustment.Saturation,
     ColorAdjustment.Temperature,
@@ -1228,6 +1263,7 @@ export interface AdjustmentSectionTool {
 }
 
 export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionTool>> = {
+  colorHarmonizer: [{ id: 'colorHarmonizer', label: 'adjustments.colorHarmonizer.title' }],
   color: [
     { id: 'whiteBalance', label: 'adjustments.color.whiteBalance' },
     { id: 'colorPresence', label: 'adjustments.color.presence' },

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import BasicAdjustments from './Basic';
 import CurveGraph from './Curves';
 import ColorPanel from './Color';
+import ColorHarmonizer from './ColorHarmonizer';
 import DetailsPanel from './Details';
 import EffectsPanel from './Effects';
 import { ActiveTools } from '../../utils/adjustments';
@@ -11,6 +12,7 @@ const SECTION_COMPONENTS: Record<string, any> = {
   basic: BasicAdjustments,
   curves: CurveGraph,
   color: ColorPanel,
+  colorHarmonizer: ColorHarmonizer,
   details: DetailsPanel,
   effects: EffectsPanel,
 };

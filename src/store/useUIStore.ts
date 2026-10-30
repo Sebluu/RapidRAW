@@ -318,7 +318,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   activePanel: Panel.Adjustments,
   renderedPanel: Panel.Adjustments,
   slideDirection: 1,
-  collapsibleSectionsState: { basic: true, color: false, curves: true, details: false, effects: false },
+  collapsibleSectionsState: { basic: true, color: false, colorHarmonizer: false, curves: true, details: false, effects: false },
   cropSectionsState: { transform: false, lens: false },
 
   isCreateFolderModalOpen: false,
