@@ -313,10 +313,6 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const index = existingIndex >= 0 ? existingIndex : points.findIndex((point) => point.x > x);
       const insert = index < 0 ? points.length - 1 : index;
       const old = existingIndex < 0 ? null : points[existingIndex];
-      const left = points[Math.max(0, insert - 1)];
-      const right = points[Math.min(points.length - 1, insert)];
-      const baseline = old?.y ?? (right.x > left.x
-        ? left.y + (right.y - left.y) * (x - left.x) / (right.x - left.x) : x);
       const next = [...points];
       const y = Math.max(0, Math.min(255, curvePick.baseline + curvePick.delta));
       if (old) next[existingIndex] = { x: old.x, y };
@@ -902,7 +898,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => setActiveChannel(channel)}
+                onClick={() => { setActiveChannel(channel); if (pickerChannel) setEditor({ curvePickerChannel: channel, curvePick: null }); }}
                 type="button"
                 style={{
                   backgroundColor:
