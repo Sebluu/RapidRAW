@@ -1,0 +1,316 @@
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { PointerEvent as ReactPointerEvent } from 'react';
+import { invoke } from '@tauri-apps/api/core';
+import { Link2, Link2Off, RotateCcw, Sparkles, ChevronDown } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import type { Adjustments, ColorHarmonySettings, HarmonyRule } from '../../utils/adjustments';
+import { DEFAULT_COLOR_HARMONY } from '../../utils/adjustments';
+import { HARMONY_RULES, moveHarmonyNode, rotateHarmony, ruleNodes, setHarmonyRule, wrapHue } from '../../utils/colorHarmony';
+import { useEditorStore } from '../../store/useEditorStore';
+import { Invokes } from '../ui/AppProperties';
+
+type Props = {
+  adjustments: Adjustments;
+  setAdjustments: (updater: (prev: Adjustments) => Adjustments) => void;
+  onDragStateChange?: (dragging: boolean) => void;
+};
+
+const WHEEL = 240;
+const CENTER = WHEEL / 2;
+const RAD = Math.PI / 180;
+const hueColor = (hue: number) => `oklch(70% 0.13 ${wrapHue(hue)}deg)`;
+
+function point(angle: number, radius: number): [number, number] {
+  return [CENTER + Math.sin(angle * RAD) * radius, CENTER - Math.cos(angle * RAD) * radius];
+}
+
+function wedge(start: number, end: number, inner: number, outer: number): string {
+  const [ax, ay] = point(start, inner);
+  const [bx, by] = point(start, outer);
+  const [cx, cy] = point(end, outer);
+  const [dx, dy] = point(end, inner);
+  const largeArc = end - start > 180 ? 1 : 0;
+  return `M ${ax} ${ay} L ${bx} ${by} A ${outer} ${outer} 0 ${largeArc} 1 ${cx} ${cy} L ${dx} ${dy} A ${inner} ${inner} 0 ${largeArc} 0 ${ax} ${ay} Z`;
+}
+
+function Range({
+  title, value, min, max, step, onChange, display,
+}: {
+  title: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+  display: string;
+}) {
+  return (
+    <label className="flex flex-col gap-1.5 text-xs">
+      <span className="flex items-center justify-between text-text-secondary">
+        <span>{title}</span>
+        <span className="tabular-nums font-medium text-text-primary">{display}</span>
+      </span>
+      <input
+        aria-label={title}
+        className="w-full accent-accent"
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+      />
+    </label>
+  );
+}
+
+export default function ColorHarmonizer({ adjustments, setAdjustments, onDragStateChange }: Props) {
+  const { t } = useTranslation();
+  const harmony: ColorHarmonySettings = adjustments.colorHarmony ?? DEFAULT_COLOR_HARMONY;
+  const selectedPath = useEditorStore((state) => state.selectedImage?.path);
+  const previewUrl = useEditorStore((state) => state.finalPreviewUrl);
+  const wheelRef = useRef<SVGSVGElement | null>(null);
+  const dragRef = useRef<{ index: number | 'rotate'; pointer: number } | null>(null);
+  const [showSaturation, setShowSaturation] = useState(false);
+  const [histogram, setHistogram] = useState<number[]>([]);
+  const [sampling, setSampling] = useState(false);
+
+  useEffect(() => {
+    if (!selectedPath || !previewUrl) return;
+    let cancelled = false;
+    setSampling(true);
+    invoke<number[]>(Invokes.SampleColorHarmonyHistogram)
+      .then((bins) => {
+        if (!cancelled) setHistogram(bins.length === 72 ? bins : []);
+      })
+      .catch(() => {
+        if (!cancelled) setHistogram([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSampling(false);
+      });
+    return () => { cancelled = true; };
+  }, [selectedPath, previewUrl]);
+
+  const update = useCallback(
+    (change: (current: ColorHarmonySettings) => ColorHarmonySettings) => {
+      setAdjustments((prev: Adjustments) => ({
+        ...prev,
+        colorHarmony: change(prev.colorHarmony ?? DEFAULT_COLOR_HARMONY),
+      }));
+    },
+    [setAdjustments],
+  );
+
+  const chooseRule = (rule: HarmonyRule) => update((current) => setHarmonyRule(current, rule));
+
+  const hueAtPointer = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width - 0.5) * WHEEL;
+    const y = ((e.clientY - rect.top) / rect.height - 0.5) * WHEEL;
+    return wrapHue(Math.atan2(y, x) / RAD + 90);
+  };
+
+  const startDrag = (e: ReactPointerEvent<SVGElement>, index: number | 'rotate') => {
+    if (!wheelRef.current) return;
+    e.preventDefault();
+    e.stopPropagation();
+    wheelRef.current.setPointerCapture(e.pointerId);
+    dragRef.current = { index, pointer: e.pointerId };
+    onDragStateChange?.(true);
+  };
+
+  const updateDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointer !== e.pointerId) return;
+    const angle = hueAtPointer(e);
+    update((current) => {
+      if (drag.index === 'rotate') return rotateHarmony(current, angle);
+      if (current.rule === 'custom') return moveHarmonyNode(current, drag.index, angle);
+      // A linked preset rotates as one rigid geometry.
+      const delta = ((angle - current.nodes[drag.index] + 540) % 360) - 180;
+      return rotateHarmony(current, current.anchor + delta);
+    });
+  };
+
+  const endDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (dragRef.current?.pointer !== e.pointerId) return;
+    dragRef.current = null;
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+    onDragStateChange?.(false);
+  };
+
+  useEffect(() => () => { onDragStateChange?.(false); }, [onDragStateChange]);
+
+  const bars = useMemo(() => Array.from({ length: 72 }, (_, i) => {
+    const hue = i * 5;
+    const magnitude = histogram[i] ?? 0;
+    return { hue, d: wedge(hue - 2.35, hue + 2.35, 59, 63 + magnitude * 30) };
+  }), [histogram]);
+
+  const matchDominant = () => {
+    if (histogram.length !== 72) return;
+    const index = histogram.reduce((best, v, i) => v > histogram[best] ? i : best, 0);
+    update((current) => rotateHarmony(current, index * 5 + 2.5));
+  };
+
+  const count = harmony.nodes.length;
+  return (
+    <div className="flex flex-col gap-4 select-none" data-color-harmonizer>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <div className="text-xs font-semibold text-text-primary">{t('adjustments.colorHarmonizer.title')}</div>
+          <div className="text-[11px] text-text-secondary">{t('adjustments.colorHarmonizer.description')}</div>
+        </div>
+        <button
+          type="button"
+          aria-pressed={harmony.enabled}
+          onClick={() => update((v) => ({ ...v, enabled: !v.enabled }))}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${harmony.enabled ? 'bg-accent text-white' : 'bg-surface text-text-secondary'}`}
+        >
+          {harmony.enabled ? t('adjustments.colorHarmonizer.on') : t('adjustments.colorHarmonizer.off')}
+        </button>
+      </div>
+
+      <div className="grid grid-cols-[1fr_auto] items-center gap-2">
+        <select
+          aria-label={t('adjustments.colorHarmonizer.rule')}
+          value={harmony.rule}
+          onChange={(e) => chooseRule(e.target.value as HarmonyRule)}
+          className="min-w-0 rounded-lg bg-surface border border-border px-2.5 py-2 text-xs text-text-primary"
+        >
+          {HARMONY_RULES.map((rule) => (
+            <option key={rule} value={rule}>{t(`adjustments.colorHarmonizer.rules.${rule}`)}</option>
+          ))}
+        </select>
+        <button
+          type="button"
+          aria-label={t('adjustments.colorHarmonizer.unlink')}
+          title={harmony.rule === 'custom' ? t('adjustments.colorHarmonizer.unlinked') : t('adjustments.colorHarmonizer.linked')}
+          onClick={() => chooseRule(harmony.rule === 'custom' ? 'complementary' : 'custom')}
+          className="flex items-center justify-center rounded-lg bg-surface border border-border w-9 h-9 text-text-secondary hover:text-text-primary"
+        >
+          {harmony.rule === 'custom' ? <Link2Off size={17} /> : <Link2 size={17} />}
+        </button>
+      </div>
+
+      <div className="relative mx-auto w-full max-w-[270px]">
+        <svg
+          ref={wheelRef}
+          viewBox={`0 0 ${WHEEL} ${WHEEL}`}
+          role="group"
+          aria-label={t('adjustments.colorHarmonizer.wheel')}
+          className="w-full h-auto overflow-visible touch-none"
+          onPointerMove={updateDrag}
+          onPointerUp={endDrag}
+          onPointerCancel={endDrag}
+        >
+          <circle cx={CENTER} cy={CENTER} r={108} fill="none" stroke="currentColor" strokeOpacity={0.09} strokeWidth={1} />
+          {Array.from({ length: 72 }, (_, i) => (
+            <path key={`spectrum-${i}`} d={wedge(i * 5 - 2.6, i * 5 + 2.6, 97, 104)}
+              fill={hueColor(i * 5)} opacity={0.9} />
+          ))}
+          {bars.map(({ hue, d }) => (
+            <path key={`hist-${hue}`} d={d} fill={hueColor(hue)} opacity={histogram.length ? 0.75 : 0.12} />
+          ))}
+          {harmony.nodes.map((hue, i) => {
+            const spread = Math.min(85, Math.max(7, harmony.width * 90 / count));
+            return (
+              <path key={`zone-${i}`} d={wedge(hue - spread, hue + spread, 28, 55)}
+                fill={hueColor(hue)} fillOpacity={0.23}
+                stroke={hueColor(hue)} strokeOpacity={0.65} strokeWidth={0.8} />
+            );
+          })}
+          <circle cx={CENTER} cy={CENTER} r={27} fill="currentColor" fillOpacity={0.035}
+            onPointerDown={(e) => startDrag(e, 'rotate')} className="cursor-grab" />
+          <text x={CENTER} y={CENTER - 3} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.65}
+            pointerEvents="none">{harmony.rule === 'custom' ? t('adjustments.colorHarmonizer.free') : t('adjustments.colorHarmonizer.rotate')}</text>
+          <text x={CENTER} y={CENTER + 10} textAnchor="middle" fontSize={10} fill="currentColor" opacity={0.7}
+            pointerEvents="none">{count} {t('adjustments.colorHarmonizer.nodes')}</text>
+          {harmony.nodes.map((hue, i) => {
+            const [cx, cy] = point(hue, 82);
+            return (
+              <g key={`node-${i}`} onPointerDown={(e) => startDrag(e, i)}
+                className="cursor-grab">
+                <circle cx={cx} cy={cy} r={15} fill="transparent" />
+                <circle cx={cx} cy={cy} r={9} fill={hueColor(hue)} stroke="white" strokeWidth={2}
+                  style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.38))' }} />
+                <text x={cx} y={cy + 3.5} textAnchor="middle" fontSize={9} fontWeight={700}
+                  pointerEvents="none" fill="black">{i + 1}</text>
+              </g>
+            );
+          })}
+        </svg>
+        <div className="mt-1 flex justify-between gap-1 text-[10px] text-text-secondary">
+          <span>{sampling ? t('adjustments.colorHarmonizer.sampling') : t('adjustments.colorHarmonizer.histogram')}</span>
+          <button type="button" className="flex items-center gap-1 hover:text-text-primary disabled:opacity-40"
+            disabled={histogram.length === 0} onClick={matchDominant}>
+            <Sparkles size={12} />{t('adjustments.colorHarmonizer.match')}
+          </button>
+        </div>
+      </div>
+
+      {harmony.rule === 'custom' && (
+        <div className="flex items-center justify-between gap-2 text-xs">
+          <span className="text-text-secondary">{t('adjustments.colorHarmonizer.nodeCount')}</span>
+          <div className="inline-flex rounded-lg bg-surface p-0.5 gap-0.5">
+            {[2, 3, 4].map((n) => (
+              <button key={n} type="button" aria-pressed={count === n}
+                className={`w-8 h-7 rounded-md tabular-nums transition-colors ${count === n ? 'bg-card-active text-text-primary font-semibold' : 'text-text-secondary'}`}
+                onClick={() => update((current) => ({
+                  ...current,
+                  nodes: Array.from({ length: n }, (_, i) => current.nodes[i] ?? wrapHue(current.anchor + i * 360 / n)),
+                }))}>{n}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-3 border-t border-border pt-3">
+        <Range title={t('adjustments.colorHarmonizer.strength')} value={harmony.strength}
+          min={0} max={1} step={0.01} display={`${Math.round(harmony.strength * 100)}%`}
+          onChange={(strength) => update((v) => ({ ...v, strength }))} />
+        <Range title={t('adjustments.colorHarmonizer.width')} value={harmony.width}
+          min={0.25} max={4} step={0.05} display={harmony.width.toFixed(2)}
+          onChange={(width) => update((v) => ({ ...v, width }))} />
+        <Range title={t('adjustments.colorHarmonizer.neutral')} value={harmony.neutralProtection}
+          min={0} max={1} step={0.01} display={`${Math.round(harmony.neutralProtection * 100)}%`}
+          onChange={(neutralProtection) => update((v) => ({ ...v, neutralProtection }))} />
+      </div>
+
+      <div className="border-t border-border pt-2">
+        <button type="button" className="w-full flex items-center justify-between text-xs text-text-secondary py-1"
+          aria-expanded={showSaturation} onClick={() => setShowSaturation((v) => !v)}>
+          {t('adjustments.colorHarmonizer.saturation')}
+          <ChevronDown size={15} className={`transition-transform ${showSaturation ? 'rotate-180' : ''}`} />
+        </button>
+        {showSaturation && <div className="flex flex-col gap-3 pt-2">
+          {harmony.nodes.map((hue, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: hueColor(hue) }} />
+              <div className="grow">
+                <Range title={`${t('adjustments.colorHarmonizer.node')} ${index + 1}`}
+                  min={0} max={2} step={0.01} value={harmony.nodeSaturation[index] ?? 1}
+                  display={`${Math.round((harmony.nodeSaturation[index] ?? 1) * 100)}%`}
+                  onChange={(saturation) => update((v) => {
+                    const nodeSaturation = [...v.nodeSaturation];
+                    nodeSaturation[index] = saturation;
+                    return { ...v, nodeSaturation };
+                  })} />
+              </div>
+            </div>
+          ))}
+        </div>}
+      </div>
+
+      <button type="button" className="flex items-center justify-center gap-1.5 self-end rounded-md px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+        onClick={() => update(() => ({
+          ...DEFAULT_COLOR_HARMONY,
+          nodes: [...DEFAULT_COLOR_HARMONY.nodes],
+          nodeSaturation: [...DEFAULT_COLOR_HARMONY.nodeSaturation],
+        }))}>
+        <RotateCcw size={13} /> {t('adjustments.colorHarmonizer.reset')}
+      </button>
+    </div>
+  );
+}
