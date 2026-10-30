@@ -68,15 +68,19 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const { t } = useTranslation();
   const harmony: ColorHarmonySettings = adjustments.colorHarmony ?? DEFAULT_COLOR_HARMONY;
   const selectedPath = useEditorStore((state) => state.selectedImage?.path);
-  const previewUrl = useEditorStore((state) => state.finalPreviewUrl);
+  const previewReady = useEditorStore((state) => Boolean(state.finalPreviewUrl));
+  const sampledImageRef = useRef<string | null>(null);
   const wheelRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ index: number | 'rotate'; pointer: number } | null>(null);
+  const pendingHueRef = useRef<number | null>(null);
+  const frameRef = useRef<number | null>(null);
   const [showSaturation, setShowSaturation] = useState(false);
   const [histogram, setHistogram] = useState<number[]>([]);
   const [sampling, setSampling] = useState(false);
 
   useEffect(() => {
-    if (!selectedPath || !previewUrl) return;
+    if (!selectedPath || !previewReady || sampledImageRef.current === selectedPath) return;
+    sampledImageRef.current = selectedPath;
     let cancelled = false;
     setSampling(true);
     invoke<number[]>(Invokes.SampleColorHarmonyHistogram)
@@ -84,13 +88,16 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
         if (!cancelled) setHistogram(bins.length === 72 ? bins : []);
       })
       .catch(() => {
-        if (!cancelled) setHistogram([]);
+        if (!cancelled) {
+          sampledImageRef.current = null;
+          setHistogram([]);
+        }
       })
       .finally(() => {
         if (!cancelled) setSampling(false);
       });
     return () => { cancelled = true; };
-  }, [selectedPath, previewUrl]);
+  }, [selectedPath, previewReady]);
 
   const update = useCallback(
     (change: (current: ColorHarmonySettings) => ColorHarmonySettings) => {
@@ -120,27 +127,44 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
     onDragStateChange?.(true);
   };
 
-  const updateDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
+  const applyDrag = (hue: number) => {
     const drag = dragRef.current;
-    if (!drag || drag.pointer !== e.pointerId) return;
-    const angle = hueAtPointer(e);
+    if (!drag) return;
     update((current) => {
-      if (drag.index === 'rotate') return rotateHarmony(current, angle);
-      if (current.rule === 'custom') return moveHarmonyNode(current, drag.index, angle);
-      // A linked preset rotates as one rigid geometry.
-      const delta = ((angle - current.nodes[drag.index] + 540) % 360) - 180;
+      if (drag.index === 'rotate') return rotateHarmony(current, hue);
+      if (current.rule === 'custom') return moveHarmonyNode(current, drag.index, hue);
+      const delta = ((hue - current.nodes[drag.index] + 540) % 360) - 180;
       return rotateHarmony(current, current.anchor + delta);
+    });
+  };
+
+  const updateDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
+    if (dragRef.current?.pointer !== e.pointerId) return;
+    pendingHueRef.current = hueAtPointer(e);
+    if (frameRef.current !== null) return;
+    frameRef.current = requestAnimationFrame(() => {
+      frameRef.current = null;
+      const angle = pendingHueRef.current;
+      pendingHueRef.current = null;
+      if (angle !== null) applyDrag(angle);
     });
   };
 
   const endDrag = (e: ReactPointerEvent<SVGSVGElement>) => {
     if (dragRef.current?.pointer !== e.pointerId) return;
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    frameRef.current = null;
+    pendingHueRef.current = null;
+    applyDrag(hueAtPointer(e));
     dragRef.current = null;
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
     onDragStateChange?.(false);
   };
 
-  useEffect(() => () => { onDragStateChange?.(false); }, [onDragStateChange]);
+  useEffect(() => () => {
+    if (frameRef.current !== null) cancelAnimationFrame(frameRef.current);
+    onDragStateChange?.(false);
+  }, [onDragStateChange]);
 
   const bars = useMemo(() => Array.from({ length: 72 }, (_, i) => {
     const hue = i * 5;
