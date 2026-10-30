@@ -803,9 +803,11 @@ fn process_preview_job(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
 
-    let base_valid = cached_preview_lock
-        .as_ref()
-        .is_some_and(|c| c.source_path == loaded_image.path && c.transform_hash == new_transform_hash && c.preview_dim == preview_dim);
+    let base_valid = cached_preview_lock.as_ref().is_some_and(|c| {
+        c.source_path == loaded_image.path
+            && c.transform_hash == new_transform_hash
+            && c.preview_dim == preview_dim
+    });
     let small_valid = base_valid
         && cached_preview_lock
             .as_ref()
