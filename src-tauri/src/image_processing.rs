@@ -1945,6 +1945,9 @@ pub struct AllAdjustments {
     pub tile_offset_x: u32,
     pub tile_offset_y: u32,
     pub mask_atlas_cols: u32,
+    // 0=normal rendering, 1=sample before luma, 2=sample before per-channel curves.
+    pub curve_sample_mode: u32,
+    pub _curve_sample_pad: [u32; 3],
 }
 
 struct AdjustmentScales {
@@ -3165,6 +3168,8 @@ pub fn get_all_adjustments_from_json(
         tile_offset_x: 0,
         tile_offset_y: 0,
         mask_atlas_cols: 1,
+        curve_sample_mode: 0,
+        _curve_sample_pad: [0; 3],
     }
 }
 

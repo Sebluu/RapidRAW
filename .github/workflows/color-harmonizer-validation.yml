@@ -1,9 +1,10 @@
-name: Color Harmonizer — CI
+name: Color Harmonizer & Curves — CI
 
 on:
   push:
     branches:
       - feature/color-harmonizer
+      - test/harmonizer-and-curves
   workflow_dispatch:
 
 permissions:

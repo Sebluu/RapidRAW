@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Pipette } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -280,6 +280,10 @@ const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseE
 function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
+  const pickerChannel = useEditorStore((s) => s.curvePickerChannel);
+  const curvePick = useEditorStore((s) => s.curvePick);
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const appliedPickSequence = useRef(-1);
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
@@ -295,6 +299,32 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const localPointsRef = useRef<Array<Coord> | null>(null);
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
+  const pickerActive = pickerChannel === activeChannel && !isParametricMode;
+  useEffect(() => {
+    if (
+      !curvePick ||
+      curvePick.channel !== activeChannel ||
+      isParametricMode ||
+      appliedPickSequence.current === curvePick.sequence
+    )
+      return;
+    appliedPickSequence.current = curvePick.sequence;
+    const x = curvePick.tone;
+    if (!Number.isFinite(x) || !Number.isFinite(curvePick.delta)) return;
+    setAdjustments((prev: Adjustments) => {
+      const points = prev.curves[curvePick.channel];
+      if (!points || points.length < 2) return prev;
+      const existingIndex = points.findIndex((point) => Math.abs(point.x - x) < 1);
+      const index = existingIndex >= 0 ? existingIndex : points.findIndex((point) => point.x > x);
+      const insert = index < 0 ? points.length - 1 : index;
+      const old = existingIndex < 0 ? null : points[existingIndex];
+      const next = [...points];
+      const y = Math.max(0, Math.min(255, curvePick.baseline + curvePick.delta));
+      if (old) next[existingIndex] = { x: old.x, y };
+      else next.splice(insert, 0, { x, y });
+      return { ...prev, curves: { ...prev.curves, [curvePick.channel]: next } };
+    });
+  }, [curvePick, activeChannel, isParametricMode, setAdjustments]);
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
@@ -317,6 +347,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
     setCurveMode(newMode);
+    setEditor({ curvePickerChannel: null, curvePick: null });
 
     setAdjustments((prev: any) => {
       if (newMode === 'parametric') {
@@ -857,6 +888,24 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
         </div>
 
         <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            disabled={isParametricMode}
+            aria-label="Targeted curve picker"
+            aria-pressed={pickerActive}
+            title="Pick a tone on the image"
+            className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-accent text-white' : 'bg-surface-secondary text-text-secondary'}`}
+            onClick={() =>
+              setEditor({
+                curvePickerChannel: pickerActive ? null : activeChannel,
+                curvePick: null,
+                isWbPickerActive: false,
+                isRelightPickerActive: false,
+              })
+            }
+          >
+            <Pipette size={16} />
+          </button>
           {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
@@ -866,7 +915,10 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
                 className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => setActiveChannel(channel)}
+                onClick={() => {
+                  setActiveChannel(channel);
+                  if (pickerChannel) setEditor({ curvePickerChannel: channel, curvePick: null });
+                }}
                 type="button"
                 style={{
                   backgroundColor:

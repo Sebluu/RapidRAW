@@ -73,6 +73,14 @@ interface EditorState {
   isStraightenActive: boolean;
   isAutoStraightening: boolean;
   isWbPickerActive: boolean;
+  curvePickerChannel: 'luma' | 'red' | 'green' | 'blue' | null;
+  curvePick: {
+    channel: 'luma' | 'red' | 'green' | 'blue';
+    tone: number;
+    baseline: number;
+    delta: number;
+    sequence: number;
+  } | null;
   isRelightPickerActive: boolean;
   activeRelightLightId: string | null;
   activeCenterMarker: CenterMarker | null;
@@ -147,6 +155,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   isStraightenActive: false,
   isAutoStraightening: false,
   isWbPickerActive: false,
+  curvePickerChannel: null,
+  curvePick: null,
   isRelightPickerActive: false,
   activeRelightLightId: null,
   activeCenterMarker: null,

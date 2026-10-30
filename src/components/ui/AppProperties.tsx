@@ -40,6 +40,7 @@ export enum Invokes {
   CalculateAutoAdjustments = 'calculate_auto_adjustments',
   SampleWhiteBalance = 'sample_white_balance',
   SampleColorHarmonyHistogram = 'sample_color_harmony_histogram',
+  SampleCurveTone = 'sample_curve_tone',
   CalculateAutoStraighten = 'calculate_auto_straighten',
   CancelAiTask = 'cancel_ai_task',
   CancelExport = 'cancel_export',
