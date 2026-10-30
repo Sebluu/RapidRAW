@@ -197,7 +197,7 @@ struct ColorHarmony {
     saturation: vec4<f32>,
     params: vec4<f32>,
     count: u32,
-    _padding: vec3<u32>,
+    _padding: array<u32, 3>,
 }
 
 struct AllAdjustments {
