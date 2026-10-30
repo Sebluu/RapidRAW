@@ -4767,6 +4767,48 @@ fn compute_white_balance_sample(
     })
 }
 
+
+#[tauri::command]
+pub fn sample_color_harmony_histogram(
+    state: tauri::State<'_, AppState>,
+) -> Result<Vec<f32>, String> {
+    // Read only a bounded sample of the geometry-corrected *source* preview.
+    // Do not rerender the image or read the GPU on every wheel interaction.
+    let loaded = state.original_image.lock().unwrap()
+        .as_ref().cloned().ok_or("No image loaded")?;
+    let preview = state.cached_preview_for(crate::app_state::PreviewTarget::Editor)
+        .lock().unwrap().as_ref().cloned().ok_or("Preview not ready")?;
+    let image = preview.image;
+    let (width, height) = image.dimensions();
+    if width == 0 || height == 0 { return Err("Empty preview".into()); }
+
+    let stride = (((width as f64 * height as f64) / 65_000.0).sqrt().ceil() as u32).max(1);
+    let mut histogram = vec![0.0_f32; 72];
+    for y in (0..height).step_by(stride as usize) {
+        for x in (0..width).step_by(stride as usize) {
+            let Some(rgb) = read_linear_rgb(&image, x, y, loaded.is_raw) else { continue };
+            let r = rgb[0].max(0.0);
+            let g = rgb[1].max(0.0);
+            let b = rgb[2].max(0.0);
+            let l = (0.4122214708*r + 0.5363325363*g + 0.0514459929*b).cbrt();
+            let m = (0.2119034982*r + 0.6806995451*g + 0.1073969566*b).cbrt();
+            let s = (0.0883024619*r + 0.2817188376*g + 0.6299787005*b).cbrt();
+            let a = 1.9779984951*l - 2.4285922050*m + 0.4505937099*s;
+            let b2 = 0.0259040371*l + 0.7827717662*m - 0.8086757660*s;
+            let chroma = a.hypot(b2);
+            if chroma <= 0.01 { continue }
+            let hue = b2.atan2(a).to_degrees().rem_euclid(360.0);
+            let idx = (hue / 5.0) as usize % 72;
+            histogram[idx] += chroma;
+        }
+    }
+    let max = histogram.iter().copied().fold(0.0_f32, f32::max);
+    if max > 0.0 {
+        histogram.iter_mut().for_each(|value| *value = (*value / max).sqrt());
+    }
+    Ok(histogram)
+}
+
 #[tauri::command]
 pub async fn sample_white_balance(
     corners: Vec<UvPoint>,
