@@ -5,7 +5,7 @@ import { Link2, Link2Off, RotateCcw, Sparkles, ChevronDown } from 'lucide-react'
 import { useTranslation } from 'react-i18next';
 import type { Adjustments, ColorHarmonySettings, HarmonyRule } from '../../utils/adjustments';
 import { DEFAULT_COLOR_HARMONY } from '../../utils/adjustments';
-import { HARMONY_RULES, moveHarmonyNode, rotateHarmony, ruleNodes, setHarmonyRule, wrapHue } from '../../utils/colorHarmony';
+import { HARMONY_RULES, moveHarmonyNode, rotateHarmony, setHarmonyRule, wrapHue } from '../../utils/colorHarmony';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Invokes } from '../ui/AppProperties';
 
@@ -68,7 +68,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const { t } = useTranslation();
   const harmony: ColorHarmonySettings = adjustments.colorHarmony ?? DEFAULT_COLOR_HARMONY;
   const selectedPath = useEditorStore((state) => state.selectedImage?.path);
-  const previewReady = useEditorStore((state) => Boolean(state.finalPreviewUrl));
+  const previewReady = useEditorStore((state) => Boolean(state.finalPreviewUrl || state.hasRenderedFirstFrame));
   const sampledImageRef = useRef<string | null>(null);
   const wheelRef = useRef<SVGSVGElement | null>(null);
   const dragRef = useRef<{ index: number | 'rotate'; pointer: number } | null>(null);
