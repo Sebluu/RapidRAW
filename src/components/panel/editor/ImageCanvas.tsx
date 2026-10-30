@@ -2463,7 +2463,7 @@ const ImageCanvas = memo(
             const right = points[rightIndex];
             const baseline = right.x > left.x ? left.y + (right.y-left.y)*(tone-left.x)/(right.x-left.x) : right.y;
             curveDrag.current = { channel, tone, startY, baseline };
-            setEditor({ curvePick: { channel, tone, delta: 0, sequence: ++curveSequence.current } });
+            setEditor({ curvePick: { channel, tone, baseline, delta: 0, sequence: ++curveSequence.current } });
           }).catch((err) => console.error('Curve sampling failed:', err));
           return;
         }
@@ -2767,7 +2767,7 @@ const ImageCanvas = memo(
           const drag = curveDrag.current;
           const y = e.evt?.clientY ?? drag.startY;
           const target = Math.max(0, Math.min(255, drag.baseline + (drag.startY-y) * 255 / Math.max(1, imageRenderSize.height)));
-          setEditor({ curvePick: { channel: drag.channel, tone: drag.tone,
+          setEditor({ curvePick: { channel: drag.channel, tone: drag.tone, baseline: drag.baseline,
             delta: target - drag.baseline, sequence: ++curveSequence.current } });
           return;
         }

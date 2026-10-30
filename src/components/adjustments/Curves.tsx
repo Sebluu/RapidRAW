@@ -318,7 +318,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
       const baseline = old?.y ?? (right.x > left.x
         ? left.y + (right.y - left.y) * (x - left.x) / (right.x - left.x) : x);
       const next = [...points];
-      const y = Math.max(0, Math.min(255, baseline + curvePick.delta));
+      const y = Math.max(0, Math.min(255, curvePick.baseline + curvePick.delta));
       if (old) next[existingIndex] = { x: old.x, y };
       else next.splice(insert, 0, { x, y });
       return { ...prev, curves: { ...prev.curves, [curvePick.channel]: next } };

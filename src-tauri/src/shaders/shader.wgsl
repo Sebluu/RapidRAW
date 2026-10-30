@@ -197,7 +197,7 @@ struct AllAdjustments {
     tile_offset_y: u32,
     mask_atlas_cols: u32,
     curve_sample_mode: u32,
-    _curve_sample_pad: vec3<u32>,
+    _curve_sample_pad: array<u32, 3>,
 }
 
 struct HslRange {
