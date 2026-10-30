@@ -30,7 +30,9 @@ function collect(directory) {
   for (const line of result.stdout.split(/\r?\n/)) {
     const match = line.match(/^(.+?)\(\d+,\d+\): error TS(\d+): (.+)$/);
     if (!match) continue;
-    const key = `${match[1]}: TS${match[2]}: ${match[3]}`;
+    // Ignore human-readable diagnostic text, which changes when i18next's
+    // translated-key union grows; compare file + error code + multiplicity.
+    const key = `${match[1]}: TS${match[2]}`;
     errors.set(key, (errors.get(key) || 0) + 1);
   }
   if (result.status !== 0 && errors.size === 0) {
