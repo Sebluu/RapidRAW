@@ -29,6 +29,7 @@ import RelightLightShape, { RelightBasis } from './overlays/RelightLightShape';
 import CenterMarkerShape, { CENTER_MARKERS } from './overlays/CenterMarkerShape';
 import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
+import { CURVE_PIPETTE_CURSOR } from '../../../utils/canvasControls';
 import {
   getWhiteBalanceMode,
   toRelativeWhiteBalance,
@@ -1481,6 +1482,9 @@ const ImageCanvas = memo(
     hasRenderedFirstFrame,
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const curveLoupeRef = useRef<HTMLDivElement>(null);
+    const curveLoupeImageRef = useRef<HTMLImageElement>(null);
     const curveRequest = useRef(0);
     const curveSequence = useRef(0);
     const curveGesture = useRef<{ id: number; latestY: number } | null>(null);
@@ -3491,11 +3495,7 @@ const ImageCanvas = memo(
     };
 
     const effectiveCursor = useMemo(() => {
-      if (curvePickerChannel) {
-        const svg =
-          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="black" stroke-width="3"/><rect x="2" y="2" width="12" height="12" fill="none" stroke="white" stroke-width="1.5"/></svg>';
-        return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 8, crosshair`;
-      }
+      if (curvePickerChannel) return CURVE_PIPETTE_CURSOR;
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';
       if (isRelightPickerActive) return 'crosshair';
       if (isWbPickerActive) {
@@ -3585,8 +3585,102 @@ const ImageCanvas = memo(
             ? 0
             : 1;
 
+    // Magnify the *already available* preview. Pointer motion only updates
+    // compositor transforms; there is no React setState, GPU sample or canvas
+    // readback while moving the eyedropper.
+    const handleCurveLoupeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      const loupe = curveLoupeRef.current;
+      const image = curveLoupeImageRef.current;
+      const root = rootRef.current;
+      if (!loupe || !image || !root) return;
+      if (!curvePickerChannel || curveGesture.current || isCropping || isMasking || isAiEditing || showOriginal) {
+        loupe.style.display = 'none';
+        return;
+      }
+
+      const rect = root.getBoundingClientRect();
+      if (!rect.width || !rect.height || !imageRenderSize.width || !imageRenderSize.height) {
+        loupe.style.display = 'none';
+        return;
+      }
+      // Editor's contentTransform zooms this entire canvas. Convert from
+      // screen pixels to the local coordinate system used by imageRenderSize.
+      const x = (e.clientX - rect.left) * root.clientWidth / rect.width;
+      const y = (e.clientY - rect.top) * root.clientHeight / rect.height;
+      const imgX = x - imageRenderSize.offsetX;
+      const imgY = y - imageRenderSize.offsetY;
+      if (imgX < 0 || imgY < 0 || imgX > imageRenderSize.width || imgY > imageRenderSize.height) {
+        loupe.style.display = 'none';
+        return;
+      }
+
+      const viewportScale = Math.max(0.01, transformScale);
+      const diameter = 110;
+      const magnification = 3.5;
+      const margin = 23 / viewportScale;
+      const size = diameter / viewportScale;
+      const left = x + margin + size < root.clientWidth ? x + margin : x - margin - size;
+      const top = y - margin - size >= 0 ? y - margin - size : y + margin;
+      loupe.style.display = 'block';
+      loupe.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${1 / viewportScale})`;
+      image.style.transform = `translate3d(${diameter / 2 - imgX * magnification}px, ${diameter / 2 - imgY * magnification}px, 0)`;
+    };
+
+    const hideCurveLoupe = () => {
+      if (curveLoupeRef.current) curveLoupeRef.current.style.display = 'none';
+    };
+
     return (
-      <div className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>
+      <div
+        ref={rootRef}
+        className="relative"
+        style={{ width: '100%', height: '100%', cursor: effectiveCursor }}
+        onPointerMoveCapture={handleCurveLoupeMove}
+        onPointerDownCapture={hideCurveLoupe}
+        onPointerLeave={hideCurveLoupe}
+      >
+        {curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal && (
+          <div
+            ref={curveLoupeRef}
+            aria-hidden="true"
+            className="absolute pointer-events-none"
+            style={{
+              display: 'none',
+              left: 0,
+              top: 0,
+              width: 110,
+              height: 110,
+              borderRadius: '50%',
+              overflow: 'hidden',
+              border: '3px solid rgba(255,255,255,0.95)',
+              background: '#1c1c1c',
+              boxShadow: '0 4px 18px rgba(0,0,0,.52), 0 0 0 1px rgba(0,0,0,.7)',
+              transformOrigin: 'top left',
+              zIndex: 20,
+            }}
+          >
+            <img
+              ref={curveLoupeImageRef}
+              alt=""
+              draggable={false}
+              src={finalPreviewUrl || displayState.base || selectedImage.thumbnailUrl}
+              style={{
+                position: 'absolute',
+                left: 0,
+                top: 0,
+                width: imageRenderSize.width * 3.5,
+                height: imageRenderSize.height * 3.5,
+                maxWidth: 'none',
+                userSelect: 'none',
+              }}
+            />
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 110 110" aria-hidden="true">
+              <circle cx="55" cy="55" r="4.5" fill="none" stroke="black" strokeWidth="3" />
+              <circle cx="55" cy="55" r="4.5" fill="none" stroke="white" strokeWidth="1.5" />
+              <path d="M55 42 V49 M55 61 V68 M42 55 H49 M61 55 H68" fill="none" stroke="white" strokeWidth="1.5" />
+            </svg>
+          </div>
+        )}
         <div
           className="absolute inset-0 w-full h-full transition-opacity duration-200 flex items-center justify-center"
           style={{
