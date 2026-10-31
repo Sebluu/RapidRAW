@@ -106,7 +106,7 @@ preview-not-ready errors can still be retried. Results from a previously
 selected image cannot overwrite the newly selected image's UI.
 
 The cache contains only derived histogram values (not image pixels), occupies
-less than 20 KiB for 48 entries of 72 JavaScript numbers plus Map overhead, and
+roughly 27 KiB for 48 × 72 JavaScript numbers, plus array and Map overhead, and
 is discarded when RapidRAW restarts. An edited original file at the **same
 path** is not automatically invalidated in this prototype; introduce an
 explicit source revision/mtime key before supporting external file changes.
