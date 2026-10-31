@@ -5,6 +5,7 @@
   "aiDenoiseEnabled": false,
   "aiDenoiseMethod": "ai",
   "aiPatches": [],
+  "effectStudio": { "version": 1, "effects": [] },
   "aspectRatio": 0,
   "baselineExposure": true,
   "blacks": 0,
