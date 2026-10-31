@@ -218,7 +218,10 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
       <div className="grid grid-cols-[1fr_auto] items-center gap-2">
         <HarmonyRulePicker
           value={harmony.rule}
-          options={HARMONY_RULES.map((rule) => ({ value: rule, label: t(`adjustments.colorHarmonizer.rules.${rule}`) }))}
+          options={HARMONY_RULES.map((rule) => ({
+            value: rule,
+            label: t(`adjustments.colorHarmonizer.rules.${rule}`),
+          }))}
           ariaLabel={t('adjustments.colorHarmonizer.rule')}
           onChange={chooseRule}
         />
