@@ -1483,11 +1483,16 @@ const ImageCanvas = memo(
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
     const curveRequest = useRef(0);
     const curveSequence = useRef(0);
+    const curveGesture = useRef<{ id: number; latestY: number } | null>(null);
+    const curveFrame = useRef<number | null>(null);
+    const curvePendingY = useRef<number | null>(null);
     const curveDrag = useRef<{
       channel: 'luma' | 'red' | 'green' | 'blue';
       tone: number;
       startY: number;
       baseline: number;
+      gestureId: number;
+      lastDelta: number;
     } | null>(null);
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
@@ -2437,7 +2442,24 @@ const ImageCanvas = memo(
     useEffect(() => {
       curveRequest.current++;
       curveDrag.current = null;
+      curveGesture.current = null;
+      if (curveFrame.current !== null) cancelAnimationFrame(curveFrame.current);
+      curveFrame.current = null;
     }, [curvePickerChannel, selectedImage.path]);
+
+    const publishCurveDrag = useCallback((y: number) => {
+      const gesture = curveGesture.current;
+      const drag = curveDrag.current;
+      if (!gesture || !drag || drag.gestureId !== gesture.id) return;
+      const delta = Math.max(-255, Math.min(255,
+        ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
+      if (Math.abs(delta) < 1 || Math.abs(delta - drag.lastDelta) < 0.5) return;
+      drag.lastDelta = delta;
+      setEditor({ curvePick: {
+        channel: drag.channel, tone: drag.tone, baseline: drag.baseline,
+        delta, gestureId: gesture.id, sequence: ++curveSequence.current,
+      } });
+    }, [imageRenderSize.height, setEditor]);
 
     const handleStart = useCallback(
       (e: any) => {
@@ -2451,33 +2473,35 @@ const ImageCanvas = memo(
           const pos = getCanvasPointer(e.target.getStage());
           if (!isInsideImage(pos)) return;
           const uv = mapCanvasPointToUv(pos);
-          const seq = ++curveRequest.current;
+          const id = ++curveRequest.current;
           const channel = curvePickerChannel;
-          const startY = e.evt?.clientY ?? 0;
+          const startY = e.evt?.touches?.[0]?.clientY ?? e.evt?.clientY ?? 0;
+          curveGesture.current = { id, latestY: startY };
+          curveDrag.current = null;
+          setEditor({ isSliderDragging: true });
           void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
-            imagePath: selectedImage.path,
-            x: uv.x,
-            y: uv.y,
-            channel,
-            jsAdjustments: adjustments,
-          })
-            .then((sample) => {
-              if (seq !== curveRequest.current) return;
-              const tone =
-                channel === 'luma'
-                  ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
-                  : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
-              const points = useEditorStore.getState().adjustments.curves[channel];
-              const idx = points.findIndex((p) => p.x >= tone);
-              const rightIndex = idx < 0 ? points.length - 1 : idx;
-              const left = points[Math.max(0, rightIndex - 1)];
-              const right = points[rightIndex];
-              const baseline =
-                right.x > left.x ? left.y + ((right.y - left.y) * (tone - left.x)) / (right.x - left.x) : right.y;
-              curveDrag.current = { channel, tone, startY, baseline };
-              setEditor({ curvePick: { channel, tone, baseline, delta: 0, sequence: ++curveSequence.current } });
-            })
-            .catch((err) => console.error('Curve sampling failed:', err));
+            imagePath: selectedImage.path, x: uv.x, y: uv.y, channel, jsAdjustments: adjustments,
+          }).then((sample) => {
+            if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
+            const tone = channel === 'luma'
+              ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
+              : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
+            const points = useEditorStore.getState().adjustments.curves[channel];
+            const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
+            const idx = points.findIndex((p) => p.x > tone);
+            const index = idx < 0 ? points.length - 1 : idx;
+            const left = points[Math.max(0, index - 1)], right = points[index];
+            const baseline = nearest?.y ?? (right.x > left.x
+              ? left.y + (right.y - left.y) * (tone - left.x) / (right.x - left.x) : tone);
+            curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: 0 };
+            publishCurveDrag(curveGesture.current.latestY);
+          }).catch((err) => {
+            if (curveRequest.current === id) {
+              curveGesture.current = null;
+              setEditor({ isSliderDragging: false });
+              console.error('Curve sampling failed:', err);
+            }
+          });
           return;
         }
         if (isGuidedPerspectiveActive && isCropping) {
@@ -2714,6 +2738,7 @@ const ImageCanvas = memo(
         showOriginal,
         selectedImage.path,
         setEditor,
+        publishCurveDrag,
         mapCanvasPointToUv,
         isInsideImage,
         mapScreenToUv,
@@ -2776,22 +2801,18 @@ const ImageCanvas = memo(
           }
         }
 
-        if (curvePickerChannel && curveDrag.current) {
-          const drag = curveDrag.current;
-          const y = e.evt?.clientY ?? drag.startY;
-          const target = Math.max(
-            0,
-            Math.min(255, drag.baseline + ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)),
-          );
-          setEditor({
-            curvePick: {
-              channel: drag.channel,
-              tone: drag.tone,
-              baseline: drag.baseline,
-              delta: target - drag.baseline,
-              sequence: ++curveSequence.current,
-            },
-          });
+        if (curvePickerChannel && curveGesture.current) {
+          const y = e.evt?.touches?.[0]?.clientY ?? e.evt?.clientY ?? e.touches?.[0]?.clientY ?? e.clientY;
+          if (typeof y !== 'number') return;
+          curveGesture.current.latestY = y;
+          curvePendingY.current = y;
+          if (curveFrame.current === null) {
+            curveFrame.current = requestAnimationFrame(() => {
+              curveFrame.current = null;
+              if (curvePendingY.current !== null) publishCurveDrag(curvePendingY.current);
+              curvePendingY.current = null;
+            });
+          }
           return;
         }
         if (isWbPickerActive) {
@@ -3018,6 +3039,7 @@ const ImageCanvas = memo(
         isWbPickerActive,
         curvePickerChannel,
         setEditor,
+        publishCurveDrag,
         isInitialDrawing,
         activeMaskId,
         activeAiSubMaskId,
@@ -3052,8 +3074,15 @@ const ImageCanvas = memo(
     );
 
     const handleUp = useCallback(() => {
-      if (curvePickerChannel) {
+      if (curvePickerChannel && curveGesture.current) {
+        if (curveFrame.current !== null) cancelAnimationFrame(curveFrame.current);
+        curveFrame.current = null;
+        publishCurveDrag(curveGesture.current.latestY);
+        curvePendingY.current = null;
+        curveGesture.current = null;
         curveDrag.current = null;
+        curveRequest.current++;
+        setEditor({ isSliderDragging: false });
         return;
       }
       if (!isDrawing.current) {
@@ -3317,15 +3346,15 @@ const ImageCanvas = memo(
     }, [resetWbSample]);
 
     useEffect(() => {
-      if (!isToolActive && !isWbPickerActive) return;
+      if (!isToolActive && !isWbPickerActive && !curvePickerChannel) return;
 
       function onGlobalMove(e: MouseEvent | TouchEvent) {
-        if (!isDrawing.current) return;
+        if (!isDrawing.current && !curveGesture.current) return;
         handleMove(e);
       }
 
       function onGlobalUp() {
-        if (!isDrawing.current) return;
+        if (!isDrawing.current && !curveGesture.current) return;
         handleUp();
       }
 
@@ -3339,7 +3368,7 @@ const ImageCanvas = memo(
         window.removeEventListener('touchmove', onGlobalMove);
         window.removeEventListener('touchcancel', onGlobalUp);
       };
-    }, [isToolActive, isWbPickerActive, handleMove, handleUp]);
+    }, [isToolActive, isWbPickerActive, curvePickerChannel, handleMove, handleUp]);
 
     const handleStraightenMouseDown = (e: any) => {
       if (e.evt.button !== 0 && !e.evt.touches) {
@@ -3441,7 +3470,10 @@ const ImageCanvas = memo(
     };
 
     const effectiveCursor = useMemo(() => {
-      if (curvePickerChannel) return 'crosshair';
+      if (curvePickerChannel) {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="black" stroke-width="3"/><rect x="2" y="2" width="12" height="12" fill="none" stroke="white" stroke-width="1.5"/></svg>';
+        return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 8, crosshair`;
+      }
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';
       if (isRelightPickerActive) return 'crosshair';
       if (isWbPickerActive) {
