@@ -277,13 +277,14 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
   const pickerChannel = useEditorStore((s) => s.curvePickerChannel);
   const curvePick = useEditorStore((s) => s.curvePick);
   const setEditor = useEditorStore((s) => s.setEditor);
   const appliedPickSequence = useRef(-1);
+  const parametricPickAnchor = useRef<{ gestureId: number; key: 'shadows' | 'darks' | 'lights' | 'highlights'; baseline: number } | null>(null);
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
@@ -299,32 +300,55 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const localPointsRef = useRef<Array<Coord> | null>(null);
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
-  const pickerActive = pickerChannel === activeChannel && !isParametricMode;
+  const pickerActive = pickerChannel === activeChannel && !isForMask;
   useEffect(() => {
+    // The image sampler currently measures the global pre-curve stage. Mask-local
+    // sampling must be implemented against its own pre-mask stage, not guessed.
     if (
-      !curvePick ||
-      curvePick.channel !== activeChannel ||
-      isParametricMode ||
+      isForMask || !curvePick || curvePick.channel !== activeChannel ||
       appliedPickSequence.current === curvePick.sequence
-    )
-      return;
+    ) return;
     appliedPickSequence.current = curvePick.sequence;
     const x = curvePick.tone;
     if (!Number.isFinite(x) || !Number.isFinite(curvePick.delta)) return;
+
+    if (isParametricMode) {
+      if (parametricPickAnchor.current?.gestureId !== curvePick.gestureId) {
+        const settings = adjustments.parametricCurve?.[activeChannel] ?? DEFAULT_PARAMETRIC_CURVE_SETTINGS;
+        const tonePercent = x / 255 * 100;
+        const key = tonePercent < settings.split1 ? 'shadows' :
+          tonePercent < settings.split2 ? 'darks' :
+          tonePercent < settings.split3 ? 'lights' : 'highlights';
+        parametricPickAnchor.current = { gestureId: curvePick.gestureId, key, baseline: settings[key] };
+      }
+      const anchor = parametricPickAnchor.current;
+      if (!anchor) return;
+      setAdjustments((prev: Adjustments) => {
+        const parametric = prev.parametricCurve ?? DEFAULT_PARAMETRIC_CURVE;
+        const value = Math.max(-100, Math.min(100, Math.round(anchor.baseline + curvePick.delta * 0.75)));
+        const updated = { ...parametric[activeChannel], [anchor.key]: value };
+        return {
+          ...prev,
+          parametricCurve: { ...parametric, [activeChannel]: updated },
+          curves: { ...prev.curves, [activeChannel]: buildParametricPoints(updated) },
+        };
+      });
+      return;
+    }
+
     setAdjustments((prev: Adjustments) => {
-      const points = prev.curves[curvePick.channel];
+      const points = prev.curves?.[activeChannel];
       if (!points || points.length < 2) return prev;
-      const existingIndex = points.findIndex((point) => Math.abs(point.x - x) < 1);
-      const index = existingIndex >= 0 ? existingIndex : points.findIndex((point) => point.x > x);
-      const insert = index < 0 ? points.length - 1 : index;
-      const old = existingIndex < 0 ? null : points[existingIndex];
+      const existingIndex = points.findIndex((point) => Math.abs(point.x - x) < MIN_POINT_GAP_X);
+      const insertIndex = points.findIndex((point) => point.x > x);
+      const insertion = insertIndex < 0 ? points.length - 1 : insertIndex;
       const next = [...points];
       const y = Math.max(0, Math.min(255, curvePick.baseline + curvePick.delta));
-      if (old) next[existingIndex] = { x: old.x, y };
-      else next.splice(insert, 0, { x, y });
-      return { ...prev, curves: { ...prev.curves, [curvePick.channel]: next } };
+      if (existingIndex >= 0) next[existingIndex] = { x: next[existingIndex].x, y };
+      else next.splice(insertion, 0, { x, y });
+      return { ...prev, curves: { ...prev.curves, [activeChannel]: next } };
     });
-  }, [curvePick, activeChannel, isParametricMode, setAdjustments]);
+  }, [curvePick, activeChannel, isParametricMode, isForMask, setAdjustments]);
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
@@ -347,7 +371,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
     setCurveMode(newMode);
-    setEditor({ curvePickerChannel: null, curvePick: null });
+    setEditor({ curvePick: null });
 
     setAdjustments((prev: any) => {
       if (newMode === 'parametric') {
@@ -863,7 +887,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
   return (
     <div className="select-none touch-none" ref={containerRef}>
-      <div className="flex items-center justify-between gap-2 mb-2 mt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2 mt-2">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-secondary shrink-0">
           <button
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
@@ -887,14 +911,14 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
           </button>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1 min-w-0 flex-1">
           <button
             type="button"
-            disabled={isParametricMode}
+            disabled={isForMask}
             aria-label="Targeted curve picker"
             aria-pressed={pickerActive}
             title="Pick a tone on the image"
-            className={`w-8 h-8 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-accent text-white' : 'bg-surface-secondary text-text-secondary'}`}
+            className={`w-8 h-8 shrink-0 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-white text-black shadow-sm' : 'bg-surface-secondary text-text-secondary hover:text-text-primary'}`}
             onClick={() =>
               setEditor({
                 curvePickerChannel: pickerActive ? null : activeChannel,
@@ -912,7 +936,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
             return (
               <button
                 key={channel}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
                 } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
                 onClick={() => {
