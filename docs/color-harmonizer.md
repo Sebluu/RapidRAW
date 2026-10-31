@@ -137,3 +137,29 @@ adjustments. The shared Slider also recognizes two quick, stationary touch taps
 on the thumb (within 320 ms / 24 px); touch scrolling and dragging are never
 interpreted as a reset. Native touch-generated double-click events are
 suppressed after a handled tap reset to avoid duplicate adjustment histories.
+
+## Adaptive pull width and independent dominant hues (October 2026)
+
+The former wheel display capped each node's half-sector at 85°, even though
+the `Pull Width` slider continued to 4.0. This made much of the right-hand
+slider range visually inert. The UI now calculates its **useful maximum**
+from the *largest circular gap* between the current nodes, using the shader's
+existing Gaussian `sigma = width × 180° / nodeCount`. Its maximum corresponds
+to roughly 84% falloff weight at the worst-covered gap midpoint, capped at the
+backend's supported 4.0. Regular evenly spaced patterns have a shorter
+range (max 1.7); clustered custom/analogous nodes can go wider. The
+on-wheel sectors no longer cap at 85°, and expand throughout the normal
+slider range. Legacy edits saved with greater width values remain intact
+until explicitly changed, preserving nondestructive editing and exports.
+The underlying shader math and serialized parameters are unchanged.
+
+`Match Dominant Hues` continues to rotate the full scheme in linked modes,
+including monochromatic. In **Custom**, the existing single 72-bin OKLCH
+histogram is circularly smoothed and local hue maxima are ranked by mass.
+Non-maximum suppression (30°) prevents several bins of the same color cloud
+occupying multiple nodes. The first node matches the strongest distinct
+peak, second the next, etc. When there are fewer actual chromatic peaks
+than nodes, the remaining positions are preserved instead of fabricating
+unobserved colors. Both features reuse cached histogram data and require
+no additional Rust/GPU calls during interaction. Tests:
+`node scripts/test-color-harmony.mjs`.
