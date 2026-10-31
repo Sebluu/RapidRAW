@@ -20,9 +20,9 @@ targeted curves, including additional GPU data fields.
 - One image-local, nondestructive Kaleidoscope effect; initially **hidden**.
 - Explicit **Create** action, followed by independent **eye visibility** and **Remove**.
 - Pattern modes: Radial, Mirror (horizontal/vertical/four-way/diagonal),
-  mirrored grid, spiral and bounded recursive Fractal Kaleidoscope.
+  mirrored grid, 60-degree triangular mirror tessellation, spiral and bounded recursive Fractal Kaleidoscope.
 - Controls: segment count, grid density, recursive depth, twist, center X/Y,
-  rotation, zoom, segment edge lens softness, edge vignette and edge width.
+  rotation, zoom, segment edge lens softness, edge vignette color and edge width.
 - Frontend `PrismStudioPanel` is code-split with `React.lazy` and loads only when
   the studio is opened. The heavier Kaleidoscope controls are separately code-split
   and mount only after an existing effect is expanded or explicitly created.
@@ -45,6 +45,8 @@ targeted curves, including additional GPU data fields.
   are future work. Placeholder cards must not imply these modules already run.
 - Lens softness currently uses an image-space five-tap sampling approximation
   near segment boundaries, not depth-map-driven lens bokeh.
+- The symmetry pivot stays fixed at the output image center. The optional Source X/Y controls shift the sampled photo content independently, and grid rotation is applied in image space.
+- Controls reuse RapidRAW's standard sliders (including reset behavior) and the accessible picker shared with Color Harmonizer. The source-position section is collapsed by default.
 - Interactive dragging of the image center and true downstream post-effect
   Adjustments passes are not in v1.
 - Rust compilation alone does not validate WGSL on every GPU. Confirm behavior in
@@ -57,9 +59,10 @@ targeted curves, including additional GPU data fields.
    `cargo check --locked` workflows.
 3. Open a RAW, then Effect Studio; verify merely opening the tab performs no
    Kaleidoscope rendering. Click Create, open the controls and enable the eye.
-4. Cycle each pattern and edit center/rotation/zoom/edge controls. Disable the eye
+4. Cycle each pattern, including triangular tessellation, and edit source framing, rotation, zoom and edge controls. The pattern center must stay fixed when Source X/Y changes. Disable the eye
    and confirm normal editing returns without deleting settings.
-5. Save and reopen the same image; check undo/redo, original comparison, export
+5. Verify the grid rotates, each slider resets by double-click, the edge tint can be white or colored, and dropdowns use the Color Harmonizer style.
+6. Save and reopen the same image; check undo/redo, original comparison, export
    dimensions and the exported result.
-6. Test both 8-bit and high-precision export settings, large resolutions, zoomed
+7. Test both 8-bit and high-precision export settings, large resolutions, zoomed
    previews, masks, and the shared Color Harmonizer integration branch.
