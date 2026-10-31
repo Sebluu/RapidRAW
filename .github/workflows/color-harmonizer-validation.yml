@@ -44,13 +44,6 @@ jobs:
         if: success() || failure()
         run: npx prettier --check src/components/panel/Editor.tsx src/components/panel/editor/ImageCanvas.tsx src/components/adjustments/AdjustmentSubSection.tsx src/components/adjustments/Color.tsx src/components/adjustments/Curves.tsx src/utils/canvasControls.ts src/components/adjustments/HarmonyRulePicker.tsx src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json
 
-      - name: Show formatter patch (temporary validation)
-        if: success() || failure()
-        run: |
-          npx prettier --write src/components/panel/editor/ImageCanvas.tsx src/components/ui/Slider.tsx
-          git diff -- src/components/panel/editor/ImageCanvas.tsx src/components/ui/Slider.tsx
-
-
   rust:
     name: Rust format and compile
     runs-on: ubuntu-24.04
