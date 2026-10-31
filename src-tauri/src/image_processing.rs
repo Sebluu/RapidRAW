@@ -1894,9 +1894,11 @@ pub struct ColorHarmonyGpu {
 }
 
 fn parse_color_harmony(adj: &serde_json::Value) -> ColorHarmonyGpu {
-    if !is_tool_active(adj, "colorHarmonizer")
-        || adj["colorHarmony"]["enabled"].as_bool() != Some(true)
-    {
+    // The subsection eye is the only switch. Older edits saved enabled inside colorHarmony.
+    let is_enabled = adj["activeTools"]["colorHarmonizer"]
+        .as_bool()
+        .unwrap_or_else(|| adj["colorHarmony"]["enabled"].as_bool() == Some(true));
+    if !is_enabled {
         return ColorHarmonyGpu::default();
     }
 

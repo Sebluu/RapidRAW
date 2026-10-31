@@ -477,7 +477,6 @@ export interface UiVisibility {
 export interface CollapsibleSectionsState {
   basic: boolean;
   color: boolean;
-  colorHarmonizer: boolean;
   curves: boolean;
   details: boolean;
   effects: boolean;

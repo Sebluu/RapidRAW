@@ -578,7 +578,6 @@ export interface MaskContainer {
 export interface Sections {
   [index: string]: Array<string>;
   basic: Array<string>;
-  colorHarmonizer: Array<string>;
   curves: Array<string>;
   color: Array<string>;
   details: Array<string>;
@@ -645,7 +644,7 @@ export const getDefaultCurves = (): Curves => ({
 export const DEFAULT_PARAMETRIC_CURVE = getDefaultParametricCurve();
 
 export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
-  activeTools: {},
+  activeTools: { colorHarmonizer: false },
   blacks: 0,
   brightness: 0,
   clarity: 0,
@@ -908,7 +907,6 @@ export interface AdjustmentGroup {
 }
 
 export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
-  colorHarmonizer: [{ label: 'adjustments.colorHarmonizer.title', keys: ['colorHarmony'] }],
   basic: [
     { label: 'adjustments.basic.toneMapper', keys: ['toneMapper'] },
     { label: 'adjustments.basic.exposure', keys: [BasicAdjustment.Exposure] },
@@ -935,6 +933,7 @@ export const ADJUSTMENT_GROUPS: Record<string, AdjustmentGroup[]> = {
     },
     { label: 'modals.copyPaste.groups.colorGrading', keys: [ColorAdjustment.ColorGrading] },
     { label: 'modals.copyPaste.groups.colorMixer', keys: [ColorAdjustment.Hsl] },
+    { label: 'adjustments.colorHarmonizer.title', keys: ['colorHarmony'] },
     { label: 'modals.copyPaste.groups.colorCalibration', keys: ['colorCalibration'] },
     {
       label: 'modals.copyPaste.groups.blackWhite',
@@ -1111,7 +1110,6 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     'toneMapper',
   ],
   curves: ['curves', 'pointCurves', 'parametricCurve', 'curveMode'],
-  colorHarmonizer: ['colorHarmony'],
   color: [
     ColorAdjustment.Saturation,
     ColorAdjustment.Temperature,
@@ -1119,6 +1117,7 @@ export const ADJUSTMENT_SECTIONS: Sections = {
     ColorAdjustment.WhiteBalance,
     ColorAdjustment.Vibrance,
     ColorAdjustment.Hsl,
+    'colorHarmony',
     ColorAdjustment.ColorGrading,
     'colorCalibration',
     ColorAdjustment.Hue,
@@ -1274,13 +1273,13 @@ export interface AdjustmentSectionTool {
 }
 
 export const ADJUSTMENT_SECTION_TOOLS: Record<string, Array<AdjustmentSectionTool>> = {
-  colorHarmonizer: [{ id: 'colorHarmonizer', label: 'adjustments.colorHarmonizer.title' }],
   color: [
     { id: 'whiteBalance', label: 'adjustments.color.whiteBalance' },
     { id: 'colorPresence', label: 'adjustments.color.presence' },
     { id: 'hue', label: 'adjustments.color.hue' },
     { id: 'colorGrading', label: 'adjustments.color.colorGrading' },
     { id: 'colorMixer', label: 'adjustments.color.colorMixer' },
+    { id: 'colorHarmonizer', label: 'adjustments.colorHarmonizer.title' },
     { id: 'colorCalibration', label: 'adjustments.color.calibration.title' },
   ],
   details: [
@@ -1330,15 +1329,20 @@ export const toggleToolActive = (activeTools: ActiveTools, id: string): ActiveTo
   setToolActive(activeTools, id, !isToolActive(activeTools, id));
 
 interface ToolStateSource {
+  colorHarmony?: { enabled?: boolean };
   activeTools?: ActiveTools;
   sectionVisibility?: Record<string, boolean>;
 }
 
-export const getActiveTools = (adjustments: ToolStateSource): ActiveTools =>
-  adjustments.activeTools ??
-  Object.entries(adjustments.sectionVisibility ?? {})
-    .filter(([, visible]) => !visible)
-    .reduce((activeTools, [id]) => setToolActive(activeTools, id, false), {});
+export const getActiveTools = (adjustments: ToolStateSource): ActiveTools => {
+  const tools =
+    adjustments.activeTools ??
+    Object.entries(adjustments.sectionVisibility ?? {})
+      .filter(([, visible]) => !visible)
+      .reduce((active, [id]) => setToolActive(active, id, false), {} as ActiveTools);
+  // Opt-in tool. Migrate edits made with the earlier internal on/off button.
+  return { ...tools, colorHarmonizer: tools.colorHarmonizer ?? adjustments.colorHarmony?.enabled === true };
+};
 
 export const mergeActiveTools = (base: ToolStateSource, overrides: ToolStateSource): ActiveTools => ({
   ...getActiveTools(base),
