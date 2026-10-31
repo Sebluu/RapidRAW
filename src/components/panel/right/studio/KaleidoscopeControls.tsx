@@ -27,7 +27,7 @@ function Slider({ title, value, min, max, step = 1, unit = '', onChange }: {
 
 export default function KaleidoscopeControls({ settings: s, onChange }: Props) {
   const { t } = useTranslation();
-  const l = (key: string) => t('editor.effectStudio.' + key);
+  const l = (key: string): string => t(`editor.effectStudio.${key}` as 'editor.effectStudio.title');
   const change = (key: keyof KaleidoscopeSettings, value: string | number) =>
     onChange({ ...s, [key]: value });
   return (
