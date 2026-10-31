@@ -36,7 +36,7 @@ import { useUIStore } from '../../store/useUIStore';
 import { useLibraryStore } from '../../store/useLibraryStore';
 import { useAiMasking } from '../../hooks/useAiMasking';
 import { useEditorActions, withRotation } from '../../hooks/useEditorActions';
-import { clickZoomTarget, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
+import { clickZoomTarget, CURVE_PIPETTE_CURSOR, interpretWheel, movedBeyondClick } from '../../utils/canvasControls';
 
 const parseRgb = (rgbStr: string): [number, number, number, number] => {
   const match = rgbStr.match(/[\d.]+/g);
@@ -184,6 +184,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const overlayRotation = useEditorStore((s) => s.overlayRotation);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const curvePickerChannel = useEditorStore((s) => s.curvePickerChannel);
   const isRelightPickerActive = useEditorStore((s) => s.isRelightPickerActive);
   const isMixerPickerActive = useEditorStore((s) => s.mixerPickerProperty !== null);
   const liveRotation = useEditorStore((s) => s.liveRotation);
@@ -835,6 +836,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         activeSubMask?.type === Mask.Luminance ||
         activeSubMask?.parameters?.isInitialDraw)) ||
     isWbPickerActive ||
+    !!curvePickerChannel ||
     isRelightPickerActive ||
     isMixerPickerActive;
 
@@ -962,6 +964,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
     (e: React.PointerEvent<HTMLDivElement>) => {
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
+      // The targeted curves gesture exclusively owns pointer interactions
+      // while armed. Prevent pan, click-to-zoom and modifier drags in Editor.
+      if (curvePickerChannel) return;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;
@@ -1044,7 +1049,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
       if (e.pointerType === 'mouse') e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [isPanningDisabled, isBrushActive, isCropping, getEffectiveCrop],
+    [isPanningDisabled, isBrushActive, isCropping, getEffectiveCrop, curvePickerChannel],
   );
 
   useEffect(() => {
@@ -2431,7 +2436,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isMaxZoom = transformScale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if ((isShiftPressed && !isCropping) || straightenDragLine) {
+  if (curvePickerChannel) {
+    cursorStyle = CURVE_PIPETTE_CURSOR;
+  } else if ((isShiftPressed && !isCropping) || straightenDragLine) {
     cursorStyle = 'crosshair';
   } else if (isCtrlPressed && !isBrushActive && !isCropping) {
     cursorStyle = isCropPanningRef.current ? 'grabbing' : 'move';
@@ -2616,6 +2623,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
               uncroppedAdjustedPreviewUrl={uncroppedAdjustedPreviewUrl}
               updateSubMask={updateSubMaskLocal}
               isWbPickerActive={isWbPickerActive}
+              curvePickerChannel={curvePickerChannel}
               onWbPicked={handleWbPicked}
               setAdjustments={setAdjustments}
               overlayRotation={overlayRotation}

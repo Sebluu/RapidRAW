@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2 } from 'lucide-react';
+import { RotateCcw, Copy, ClipboardPaste, Spline, Settings2, Pipette } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActiveChannel,
@@ -277,9 +277,18 @@ const MIN_POINT_GAP_X = 1;
 const hasFineAdjustmentModifier = (event: MouseEvent | TouchEvent | React.MouseEvent | React.TouchEvent) =>
   'shiftKey' in event && (event.shiftKey || event.altKey);
 
-function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: CurveGraphProps) {
+function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isForMask = false }: CurveGraphProps) {
   const { t } = useTranslation();
   const { showContextMenu } = useContextMenu();
+  const pickerChannel = useEditorStore((s) => s.curvePickerChannel);
+  const curvePick = useEditorStore((s) => s.curvePick);
+  const setEditor = useEditorStore((s) => s.setEditor);
+  const appliedPickSequence = useRef(-1);
+  const parametricPickAnchor = useRef<{
+    gestureId: number;
+    key: 'shadows' | 'darks' | 'lights' | 'highlights';
+    baseline: number;
+  } | null>(null);
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
@@ -295,6 +304,104 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const localPointsRef = useRef<Array<Coord> | null>(null);
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
+  const pickerActive = pickerChannel === activeChannel && !isForMask;
+
+  // Disarm before a different UI control handles the same pointer event.
+  useEffect(() => {
+    if (!pickerChannel || isForMask) return;
+
+    const onOtherPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-curve-picker-toggle]')) return;
+
+      // Presses on the photo remain sampling gestures; the background does not.
+      const surface = target.closest('[data-curve-picker-surface]');
+      const imageBounds = surface?.querySelector('[data-curve-picker-image-bounds]');
+      if (imageBounds) {
+        const bounds = imageBounds.getBoundingClientRect();
+        if (
+          bounds.width > 0 &&
+          bounds.height > 0 &&
+          event.clientX >= bounds.left &&
+          event.clientX <= bounds.right &&
+          event.clientY >= bounds.top &&
+          event.clientY <= bounds.bottom
+        )
+          return;
+      }
+
+      setEditor({ curvePickerChannel: null, curvePick: null });
+    };
+    document.addEventListener('pointerdown', onOtherPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onOtherPointerDown, true);
+  }, [pickerChannel, isForMask, setEditor]);
+
+  // Collapsing Curves or changing panels must not leave the global picker armed.
+  useEffect(() => {
+    if (isForMask) return;
+    return () => {
+      const state = useEditorStore.getState();
+      if (state.curvePickerChannel) state.setEditor({ curvePickerChannel: null, curvePick: null });
+    };
+  }, [isForMask]);
+
+  useEffect(() => {
+    // The image sampler currently measures the global pre-curve stage. Mask-local
+    // sampling must be implemented against its own pre-mask stage, not guessed.
+    if (
+      isForMask ||
+      !curvePick ||
+      curvePick.channel !== activeChannel ||
+      appliedPickSequence.current === curvePick.sequence
+    )
+      return;
+    appliedPickSequence.current = curvePick.sequence;
+    const x = curvePick.tone;
+    if (!Number.isFinite(x) || !Number.isFinite(curvePick.delta)) return;
+
+    if (isParametricMode) {
+      if (parametricPickAnchor.current?.gestureId !== curvePick.gestureId) {
+        const settings = adjustments.parametricCurve?.[activeChannel] ?? DEFAULT_PARAMETRIC_CURVE_SETTINGS;
+        const tonePercent = (x / 255) * 100;
+        const key =
+          tonePercent < settings.split1
+            ? 'shadows'
+            : tonePercent < settings.split2
+              ? 'darks'
+              : tonePercent < settings.split3
+                ? 'lights'
+                : 'highlights';
+        parametricPickAnchor.current = { gestureId: curvePick.gestureId, key, baseline: settings[key] };
+      }
+      const anchor = parametricPickAnchor.current;
+      if (!anchor) return;
+      setAdjustments((prev: Adjustments) => {
+        const parametric = prev.parametricCurve ?? DEFAULT_PARAMETRIC_CURVE;
+        const value = Math.max(-100, Math.min(100, Math.round(anchor.baseline + curvePick.delta * 0.75)));
+        const updated = { ...parametric[activeChannel], [anchor.key]: value };
+        return {
+          ...prev,
+          parametricCurve: { ...parametric, [activeChannel]: updated },
+          curves: { ...prev.curves, [activeChannel]: buildParametricPoints(updated) },
+        };
+      });
+      return;
+    }
+
+    setAdjustments((prev: Adjustments) => {
+      const points = prev.curves?.[activeChannel];
+      if (!points || points.length < 2) return prev;
+      const existingIndex = points.findIndex((point) => Math.abs(point.x - x) < MIN_POINT_GAP_X);
+      const insertIndex = points.findIndex((point) => point.x > x);
+      const insertion = insertIndex < 0 ? points.length - 1 : insertIndex;
+      const next = [...points];
+      const y = Math.max(0, Math.min(255, curvePick.baseline + curvePick.delta));
+      if (existingIndex >= 0) next[existingIndex] = { x: next[existingIndex].x, y };
+      else next.splice(insertion, 0, { x, y });
+      return { ...prev, curves: { ...prev.curves, [activeChannel]: next } };
+    });
+  }, [curvePick, activeChannel, isParametricMode, isForMask, setAdjustments]);
 
   const parametricCurves = adjustments?.parametricCurve || DEFAULT_PARAMETRIC_CURVE;
   const parametricCurvesRef = useRef(parametricCurves);
@@ -317,6 +424,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
   const handleToggleMode = (newMode: 'point' | 'parametric') => {
     if (newMode === curveMode) return;
     setCurveMode(newMode);
+    setEditor({ curvePick: null });
 
     setAdjustments((prev: any) => {
       if (newMode === 'parametric') {
@@ -832,7 +940,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
 
   return (
     <div className="select-none touch-none" ref={containerRef}>
-      <div className="flex items-center justify-between gap-2 mb-2 mt-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2 mt-2">
         <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-secondary shrink-0">
           <button
             className={`w-8 h-8 rounded-md flex items-center justify-center transition-all ${
@@ -856,17 +964,38 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange }: C
           </button>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex flex-wrap items-center justify-end gap-1 min-w-0 flex-1">
+          <button
+            type="button"
+            disabled={isForMask}
+            aria-label="Targeted curve picker"
+            data-curve-picker-toggle
+            aria-pressed={pickerActive}
+            title="Pick a tone on the image"
+            className={`w-8 h-8 shrink-0 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-white text-black shadow-sm' : 'bg-surface-secondary text-text-secondary hover:text-text-primary'}`}
+            onClick={() =>
+              setEditor({
+                curvePickerChannel: pickerActive ? null : activeChannel,
+                curvePick: null,
+                isWbPickerActive: false,
+                isRelightPickerActive: false,
+              })
+            }
+          >
+            <Pipette size={16} />
+          </button>
           {(Object.keys(CHANNEL_COLORS) as Array<ActiveChannel>).map((channel) => {
             const selected = activeChannel === channel;
             const channelLabel = t(`adjustments.curves.channels.${channel}`);
             return (
               <button
                 key={channel}
-                className={`w-7 h-7 rounded-full flex items-center justify-center transition-all ${
+                className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
-                } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
-                onClick={() => setActiveChannel(channel)}
+                } ${channel === ActiveChannel.Luma ? 'text-text-primary ml-1' : ''}`}
+                onClick={() => {
+                  setActiveChannel(channel);
+                }}
                 type="button"
                 style={{
                   backgroundColor:

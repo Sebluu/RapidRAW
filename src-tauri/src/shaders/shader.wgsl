@@ -196,6 +196,8 @@ struct AllAdjustments {
     tile_offset_x: u32,
     tile_offset_y: u32,
     mask_atlas_cols: u32,
+    curve_sample_mode: u32,
+    _curve_sample_pad: array<u32, 3>,
 }
 
 struct HslRange {
@@ -2143,6 +2145,23 @@ fn main(
     }
 
     base_srgb = apply_filmic_exposure(base_srgb, t_brightness);
+
+    // A targeted curve pick reads the exact input to the selected curve, not the
+    // display pixel (which has already been modified by curves/LUTs/grain).
+    // This path is only used by a tiny ROI render on pointer-down.
+    if (adjustments.curve_sample_mode != 0u) {
+        var sample_rgb = base_srgb;
+        if (adjustments.curve_sample_mode == 2u) {
+            let count = curve_count(CURVE_SRC_GLOBAL, 0u);
+            sample_rgb = vec3<f32>(
+                apply_curve(base_srgb.r, CURVE_SRC_GLOBAL, 0u, count),
+                apply_curve(base_srgb.g, CURVE_SRC_GLOBAL, 0u, count),
+                apply_curve(base_srgb.b, CURVE_SRC_GLOBAL, 0u, count)
+            );
+        }
+        textureStore(output_texture, id.xy, vec4<f32>(clamp(sample_rgb, vec3<f32>(0.0), vec3<f32>(1.0)), 1.0));
+        return;
+    }
 
     var final_rgb = apply_all_curves(base_srgb, CURVE_SRC_GLOBAL);
 
