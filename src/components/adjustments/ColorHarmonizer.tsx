@@ -244,13 +244,9 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const matchDominant = () => {
     if (histogram.length !== 72) return;
     update((current) => {
-      if (current.rule !== 'custom') {
-        const index = histogram.reduce((best, v, i) => (v > histogram[best] ? i : best), 0);
-        return rotateHarmony(current, index * 5 + 2.5);
-      }
-
-      const dominant = dominantHarmonyHues(histogram, current.nodes.length);
+      const dominant = dominantHarmonyHues(histogram, current.rule === 'custom' ? current.nodes.length : 1);
       if (dominant.length === 0) return current;
+      if (current.rule !== 'custom') return rotateHarmony(current, dominant[0]);
       // Each node independently follows a distinct dominant color. Preserve
       // the existing nodes when the photo has fewer chromatic peaks.
       const nodes = current.nodes.map((hue, index) => dominant[index] ?? hue);
