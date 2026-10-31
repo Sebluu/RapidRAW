@@ -2449,19 +2449,27 @@ const ImageCanvas = memo(
       curveFrame.current = null;
     }, [curvePickerChannel, selectedImage.path, setEditor]);
 
-    const publishCurveDrag = useCallback((y: number) => {
-      const gesture = curveGesture.current;
-      const drag = curveDrag.current;
-      if (!gesture || !drag || drag.gestureId !== gesture.id) return;
-      const delta = Math.max(-255, Math.min(255,
-        ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
-      if ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5) return;
-      drag.lastDelta = delta;
-      setEditor({ curvePick: {
-        channel: drag.channel, tone: drag.tone, baseline: drag.baseline,
-        delta, gestureId: gesture.id, sequence: ++curveSequence.current,
-      } });
-    }, [imageRenderSize.height, setEditor]);
+    const publishCurveDrag = useCallback(
+      (y: number) => {
+        const gesture = curveGesture.current;
+        const drag = curveDrag.current;
+        if (!gesture || !drag || drag.gestureId !== gesture.id) return;
+        const delta = Math.max(-255, Math.min(255, ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
+        if ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5) return;
+        drag.lastDelta = delta;
+        setEditor({
+          curvePick: {
+            channel: drag.channel,
+            tone: drag.tone,
+            baseline: drag.baseline,
+            delta,
+            gestureId: gesture.id,
+            sequence: ++curveSequence.current,
+          },
+        });
+      },
+      [imageRenderSize.height, setEditor],
+    );
 
     const handleStart = useCallback(
       (e: any) => {
@@ -2482,28 +2490,37 @@ const ImageCanvas = memo(
           curveDrag.current = null;
           setEditor({ isSliderDragging: true });
           void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
-            imagePath: selectedImage.path, x: uv.x, y: uv.y, channel, jsAdjustments: adjustments,
-          }).then((sample) => {
-            if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
-            const tone = channel === 'luma'
-              ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
-              : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
-            const points = useEditorStore.getState().adjustments.curves[channel];
-            const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
-            const idx = points.findIndex((p) => p.x > tone);
-            const index = idx < 0 ? points.length - 1 : idx;
-            const left = points[Math.max(0, index - 1)], right = points[index];
-            const baseline = nearest?.y ?? (right.x > left.x
-              ? left.y + (right.y - left.y) * (tone - left.x) / (right.x - left.x) : tone);
-            curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: 0 };
-            publishCurveDrag(curveGesture.current.latestY);
-          }).catch((err) => {
-            if (curveRequest.current === id) {
-              curveGesture.current = null;
-              setEditor({ isSliderDragging: false });
-              console.error('Curve sampling failed:', err);
-            }
-          });
+            imagePath: selectedImage.path,
+            x: uv.x,
+            y: uv.y,
+            channel,
+            jsAdjustments: adjustments,
+          })
+            .then((sample) => {
+              if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
+              const tone =
+                channel === 'luma'
+                  ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
+                  : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
+              const points = useEditorStore.getState().adjustments.curves[channel];
+              const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
+              const idx = points.findIndex((p) => p.x > tone);
+              const index = idx < 0 ? points.length - 1 : idx;
+              const left = points[Math.max(0, index - 1)],
+                right = points[index];
+              const baseline =
+                nearest?.y ??
+                (right.x > left.x ? left.y + ((right.y - left.y) * (tone - left.x)) / (right.x - left.x) : tone);
+              curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: 0 };
+              publishCurveDrag(curveGesture.current.latestY);
+            })
+            .catch((err) => {
+              if (curveRequest.current === id) {
+                curveGesture.current = null;
+                setEditor({ isSliderDragging: false });
+                console.error('Curve sampling failed:', err);
+              }
+            });
           return;
         }
         if (isGuidedPerspectiveActive && isCropping) {
@@ -3475,7 +3492,8 @@ const ImageCanvas = memo(
 
     const effectiveCursor = useMemo(() => {
       if (curvePickerChannel) {
-        const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="black" stroke-width="3"/><rect x="2" y="2" width="12" height="12" fill="none" stroke="white" stroke-width="1.5"/></svg>';
+        const svg =
+          '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16"><rect x="2" y="2" width="12" height="12" fill="none" stroke="black" stroke-width="3"/><rect x="2" y="2" width="12" height="12" fill="none" stroke="white" stroke-width="1.5"/></svg>';
         return `url("data:image/svg+xml,${encodeURIComponent(svg)}") 8 8, crosshair`;
       }
       if (isGuidedPerspectiveActive && isCropping) return 'crosshair';

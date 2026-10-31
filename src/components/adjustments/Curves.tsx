@@ -284,7 +284,11 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
   const curvePick = useEditorStore((s) => s.curvePick);
   const setEditor = useEditorStore((s) => s.setEditor);
   const appliedPickSequence = useRef(-1);
-  const parametricPickAnchor = useRef<{ gestureId: number; key: 'shadows' | 'darks' | 'lights' | 'highlights'; baseline: number } | null>(null);
+  const parametricPickAnchor = useRef<{
+    gestureId: number;
+    key: 'shadows' | 'darks' | 'lights' | 'highlights';
+    baseline: number;
+  } | null>(null);
   const [curveMode, setCurveMode] = useState<'point' | 'parametric'>(adjustments.curveMode || 'point');
   const [activeChannel, setActiveChannel] = useState<ActiveChannel>(ActiveChannel.Luma);
   const [draggingPointIndex, setDraggingPointIndex] = useState<number | null>(null);
@@ -305,9 +309,12 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
     // The image sampler currently measures the global pre-curve stage. Mask-local
     // sampling must be implemented against its own pre-mask stage, not guessed.
     if (
-      isForMask || !curvePick || curvePick.channel !== activeChannel ||
+      isForMask ||
+      !curvePick ||
+      curvePick.channel !== activeChannel ||
       appliedPickSequence.current === curvePick.sequence
-    ) return;
+    )
+      return;
     appliedPickSequence.current = curvePick.sequence;
     const x = curvePick.tone;
     if (!Number.isFinite(x) || !Number.isFinite(curvePick.delta)) return;
@@ -315,10 +322,15 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
     if (isParametricMode) {
       if (parametricPickAnchor.current?.gestureId !== curvePick.gestureId) {
         const settings = adjustments.parametricCurve?.[activeChannel] ?? DEFAULT_PARAMETRIC_CURVE_SETTINGS;
-        const tonePercent = x / 255 * 100;
-        const key = tonePercent < settings.split1 ? 'shadows' :
-          tonePercent < settings.split2 ? 'darks' :
-          tonePercent < settings.split3 ? 'lights' : 'highlights';
+        const tonePercent = (x / 255) * 100;
+        const key =
+          tonePercent < settings.split1
+            ? 'shadows'
+            : tonePercent < settings.split2
+              ? 'darks'
+              : tonePercent < settings.split3
+                ? 'lights'
+                : 'highlights';
         parametricPickAnchor.current = { gestureId: curvePick.gestureId, key, baseline: settings[key] };
       }
       const anchor = parametricPickAnchor.current;
