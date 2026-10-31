@@ -20,6 +20,53 @@ type Props = {
 const WHEEL = 240;
 const CENTER = WHEEL / 2;
 const RAD = Math.PI / 180;
+
+// Each image's source hue distribution is independent of the harmonizer's
+// palette settings. Cache it per image for this editing session, shared by
+// global and mask panels. A small bounded LRU avoids retaining all photos.
+const HISTOGRAM_CACHE_LIMIT = 48;
+const hueHistogramCache = new Map<string, number[]>();
+const pendingHueHistograms = new Map<string, Promise<number[]>>();
+
+function cachedHueHistogram(path: string): number[] | undefined {
+  const bins = hueHistogramCache.get(path);
+  if (bins) {
+    hueHistogramCache.delete(path);
+    hueHistogramCache.set(path, bins);
+  }
+  return bins;
+}
+
+function requestHueHistogram(path: string): Promise<number[]> {
+  const cached = cachedHueHistogram(path);
+  if (cached) return Promise.resolve(cached);
+
+  const pending = pendingHueHistograms.get(path);
+  if (pending) return pending;
+
+  const request = invoke<number[]>(Invokes.SampleColorHarmonyHistogram, { imagePath: path })
+    .then((bins) => {
+      if (
+        !Array.isArray(bins) ||
+        bins.length !== 72 ||
+        bins.some((bin) => !Number.isFinite(bin) || bin < 0)
+      ) {
+        throw new Error('Invalid color harmony histogram returned by backend');
+      }
+
+      hueHistogramCache.set(path, bins);
+      if (hueHistogramCache.size > HISTOGRAM_CACHE_LIMIT) {
+        const oldestPath = hueHistogramCache.keys().next().value;
+        if (oldestPath !== undefined) hueHistogramCache.delete(oldestPath);
+      }
+      return bins;
+    })
+    .finally(() => {
+      pendingHueHistograms.delete(path);
+    });
+  pendingHueHistograms.set(path, request);
+  return request;
+}
 const hueColor = (hue: number) => `oklch(70% 0.13 ${wrapHue(hue)}deg)`;
 
 function point(angle: number, radius: number): [number, number] {
@@ -85,31 +132,38 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const [sampling, setSampling] = useState(false);
 
   useEffect(() => {
-    // Image selection can precede Rust's transformed preview by several
-    // frames. Query the *requested* image identity and retry only while that
-    // particular preview is loading. Never display a previous image's bins.
-    setHistogram([]);
+    // Never trigger image analysis when the subsection is collapsed. Reopening
+    // or revisiting an analyzed photo reuses the completed result immediately.
     if (!selectedPath || !isOpen) {
+      setHistogram([]);
       setSampling(false);
       return;
     }
+
+    const cached = cachedHueHistogram(selectedPath);
+    if (cached) {
+      setHistogram(cached);
+      setSampling(false);
+      return;
+    }
+
+    // Image selection may precede its Rust preview. Share in-flight analysis
+    // between panels and retry only while this image's subsection is open.
+    setHistogram([]);
+    setSampling(true);
     let cancelled = false;
     let retryTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
-    setSampling(true);
 
     const sample = () => {
-      void invoke<number[]>(Invokes.SampleColorHarmonyHistogram, { imagePath: selectedPath })
+      void requestHueHistogram(selectedPath)
         .then((bins) => {
           if (cancelled) return;
-          setHistogram(bins.length === 72 ? bins : []);
+          setHistogram(bins);
           setSampling(false);
         })
         .catch((error) => {
           if (cancelled) return;
-          // When the photo changes, the cached preview is not immediately
-          // available. A few low-cost identity checks are cheaper than
-          // processing a full preview and avoid polling on every render.
           if (++attempts < 35) {
             retryTimer = setTimeout(sample, 200);
           } else {
