@@ -402,6 +402,19 @@
     }
   },
   "editor": {
+    "prism": {
+      "title": "Prism Studio",
+      "subtitle": "Kreativ-Effekte für deinen Bild-Workflow",
+      "intro": "Ein eigener Raum für künftige, nichtdestruktive Effekte. Deine regulären Anpassungen bleiben unverändert.",
+      "planned": "In Planung",
+      "kaleidoscope": "Kaleidoscope",
+      "kaleidoscopeDesc": "Radiale Spiegelungen, Symmetrien und frei platzierbare Zentren",
+      "flow": "Flow Fields",
+      "flowDesc": "Organische Verzerrungen und Strömungen",
+      "feedback": "Fractal Feedback",
+      "feedbackDesc": "Kreative Rückkopplung und rekursive Geometrie",
+      "status": "Noch keine Effekte aktiv – erste Version als Architektur-Grundlage"
+    },
     "adjustments": {
       "actions": {
         "copySectionSettings": "{{section}}-Einstellungen kopieren",
@@ -899,6 +912,7 @@
         "info": "Info",
         "inpaint": "Reparieren",
         "masks": "Masken",
+        "prism": "Prism Studio",
         "presets": "Vorgaben",
         "tethering": "Tethering"
       }

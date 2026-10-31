@@ -81,6 +81,7 @@ const ALL_PANELS: Panel[] = [
   Panel.Crop,
   Panel.Masks,
   Panel.Ai,
+  Panel.Prism,
   Panel.Presets,
 ];
 
@@ -93,6 +94,7 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
   [Panel.Crop]: 'rightTop',
   [Panel.Masks]: 'rightTop',
   [Panel.Ai]: 'rightTop',
+  [Panel.Prism]: 'rightTop',
   [Panel.Presets]: 'rightTop',
 };
 
@@ -118,7 +120,7 @@ export function reconcileWorkspace(
     panelLayout: {
       leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
       leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Prism, Panel.Presets],
       rightBottom: [],
     },
     activePanels: {
@@ -293,7 +295,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   panelLayout: {
     leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export],
     leftBottom: [],
-    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Prism, Panel.Presets],
     rightBottom: [],
   },
   activePanels: {
