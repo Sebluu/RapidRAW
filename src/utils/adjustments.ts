@@ -1340,8 +1340,11 @@ export const getActiveTools = (adjustments: ToolStateSource): ActiveTools => {
     Object.entries(adjustments.sectionVisibility ?? {})
       .filter(([, visible]) => !visible)
       .reduce((active, [id]) => setToolActive(active, id, false), {} as ActiveTools);
-  // Opt-in tool. Migrate edits made with the earlier internal on/off button.
-  return { ...tools, colorHarmonizer: tools.colorHarmonizer ?? adjustments.colorHarmony?.enabled ?? DEFAULT_COLOR_HARMONY.enabled };
+  // Default on for new images, but preserve explicit visibility and legacy off states.
+  return {
+    ...tools,
+    colorHarmonizer: tools.colorHarmonizer ?? adjustments.colorHarmony?.enabled ?? DEFAULT_COLOR_HARMONY.enabled,
+  };
 };
 
 export const mergeActiveTools = (base: ToolStateSource, overrides: ToolStateSource): ActiveTools => ({
