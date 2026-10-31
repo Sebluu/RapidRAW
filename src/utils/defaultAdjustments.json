@@ -1,5 +1,7 @@
 {
-  "activeTools": {},
+  "activeTools": {
+    "colorHarmonizer": false
+  },
   "aiDenoiseAmount": 100,
   "aiDenoiseDetail": 0,
   "aiDenoiseEnabled": false,

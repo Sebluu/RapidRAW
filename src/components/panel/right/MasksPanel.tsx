@@ -374,7 +374,6 @@ export default function MasksPanel() {
     basic: true,
     curves: false,
     color: false,
-    colorHarmonizer: false,
     details: false,
     effects: false,
   });

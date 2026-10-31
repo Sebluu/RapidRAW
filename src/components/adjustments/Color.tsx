@@ -16,6 +16,7 @@ import { Adjustments, ColorGrading, getAdjustmentToolOrder, getHiddenAdjustmentT
 import { AppSettings } from '../ui/AppProperties';
 import Text from '../ui/Text';
 import AdjustmentSubSection from './AdjustmentSubSection';
+import ColorHarmonizer from './ColorHarmonizer';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useEditorStore } from '../../store/useEditorStore';
 import {
@@ -1031,6 +1032,16 @@ function ColorPanel({
               </div>
             </>
           )}
+        </AdjustmentSubSection>
+      )}
+
+      {!showMonochromeMix && !hiddenTools.includes('colorHarmonizer') && (
+        <AdjustmentSubSection
+          id="colorHarmonizer"
+          order={toolOrder.indexOf('colorHarmonizer')}
+          title={t('adjustments.colorHarmonizer.title')}
+        >
+          <ColorHarmonizer adjustments={adjustments} setAdjustments={setAdjustments} onDragStateChange={onDragStateChange} />
         </AdjustmentSubSection>
       )}
 

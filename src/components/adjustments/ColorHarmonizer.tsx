@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Link2, Link2Off, RotateCcw, Sparkles, ChevronDown } from 'lucide-react';
+import HarmonyRulePicker from './HarmonyRulePicker';
 import { useTranslation } from 'react-i18next';
 import type { Adjustments, ColorHarmonySettings, HarmonyRule } from '../../utils/adjustments';
 import { DEFAULT_COLOR_HARMONY } from '../../utils/adjustments';
@@ -212,34 +213,15 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const count = harmony.nodes.length;
   return (
     <div className="flex flex-col gap-4 select-none" data-color-harmonizer>
-      <div className="flex items-center justify-between gap-2">
-        <div>
-          <div className="text-xs font-semibold text-text-primary">{t('adjustments.colorHarmonizer.title')}</div>
-          <div className="text-[11px] text-text-secondary">{t('adjustments.colorHarmonizer.description')}</div>
-        </div>
-        <button
-          type="button"
-          aria-pressed={harmony.enabled}
-          onClick={() => update((v) => ({ ...v, enabled: !v.enabled }))}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${harmony.enabled ? 'bg-accent text-white' : 'bg-surface text-text-secondary'}`}
-        >
-          {harmony.enabled ? t('adjustments.colorHarmonizer.on') : t('adjustments.colorHarmonizer.off')}
-        </button>
-      </div>
+      <p className="text-[11px] leading-relaxed text-text-secondary">{t('adjustments.colorHarmonizer.description')}</p>
 
       <div className="grid grid-cols-[1fr_auto] items-center gap-2">
-        <select
-          aria-label={t('adjustments.colorHarmonizer.rule')}
+        <HarmonyRulePicker
           value={harmony.rule}
-          onChange={(e) => chooseRule(e.target.value as HarmonyRule)}
-          className="min-w-0 rounded-lg bg-surface border border-border px-2.5 py-2 text-xs text-text-primary"
-        >
-          {HARMONY_RULES.map((rule) => (
-            <option key={rule} value={rule}>
-              {t(`adjustments.colorHarmonizer.rules.${rule}`)}
-            </option>
-          ))}
-        </select>
+          options={HARMONY_RULES.map((rule) => ({ value: rule, label: t(`adjustments.colorHarmonizer.rules.${rule}`) }))}
+          ariaLabel={t('adjustments.colorHarmonizer.rule')}
+          onChange={chooseRule}
+        />
         <button
           type="button"
           aria-label={t('adjustments.colorHarmonizer.unlink')}
