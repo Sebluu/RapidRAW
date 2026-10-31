@@ -7,7 +7,15 @@ import Slider from '../ui/Slider';
 import { useTranslation } from 'react-i18next';
 import type { Adjustments, ColorHarmonySettings, HarmonyRule } from '../../utils/adjustments';
 import { DEFAULT_COLOR_HARMONY } from '../../utils/adjustments';
-import { HARMONY_RULES, moveHarmonyNode, rotateHarmony, setHarmonyRule, wrapHue } from '../../utils/colorHarmony';
+import {
+  HARMONY_RULES,
+  dominantHarmonyHues,
+  getHarmonyWidthMax,
+  moveHarmonyNode,
+  rotateHarmony,
+  setHarmonyRule,
+  wrapHue,
+} from '../../utils/colorHarmony';
 import { useEditorStore } from '../../store/useEditorStore';
 import { Invokes } from '../ui/AppProperties';
 
@@ -235,11 +243,23 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
 
   const matchDominant = () => {
     if (histogram.length !== 72) return;
-    const index = histogram.reduce((best, v, i) => (v > histogram[best] ? i : best), 0);
-    update((current) => rotateHarmony(current, index * 5 + 2.5));
+    update((current) => {
+      if (current.rule !== 'custom') {
+        const index = histogram.reduce((best, v, i) => (v > histogram[best] ? i : best), 0);
+        return rotateHarmony(current, index * 5 + 2.5);
+      }
+
+      const dominant = dominantHarmonyHues(histogram, current.nodes.length);
+      if (dominant.length === 0) return current;
+      // Each node independently follows a distinct dominant color. Preserve
+      // the existing nodes when the photo has fewer chromatic peaks.
+      const nodes = current.nodes.map((hue, index) => dominant[index] ?? hue);
+      return { ...current, anchor: nodes[0], nodes };
+    });
   };
 
   const count = harmony.nodes.length;
+  const widthMax = getHarmonyWidthMax(harmony.nodes);
   return (
     <div className="flex flex-col gap-4 select-none" data-color-harmonizer>
       <p className="text-sm leading-relaxed text-text-secondary">{t('adjustments.colorHarmonizer.description')}</p>
@@ -301,7 +321,10 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
             <path key={`hist-${hue}`} d={d} fill={hueColor(hue)} opacity={histogram.length ? 0.75 : 0.12} />
           ))}
           {harmony.nodes.map((hue, i) => {
-            const spread = Math.min(85, Math.max(7, (harmony.width * 90) / count));
+            // Show the widening sector throughout the useful slider range.
+            // The 175° guard only protects legacy widths stored above today's
+            // adaptive limit (an SVG sector cannot span a full 360°).
+            const spread = Math.min(175, Math.max(5, (harmony.width * 90) / count));
             return (
               <path
                 key={`zone-${i}`}
@@ -435,7 +458,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
           label={t('adjustments.colorHarmonizer.width')}
           value={harmony.width}
           min={0.25}
-          max={4}
+          max={widthMax}
           step={0.05}
           defaultValue={1}
           onChange={(event) => update((v) => ({ ...v, width: Number(event.target.value) }))}
