@@ -1754,17 +1754,24 @@ pub struct KaleidoscopeGpu {
 }
 
 fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
-    let Some(effect) = value.get("effectStudio")
+    let Some(effect) = value
+        .get("effectStudio")
         .and_then(|studio| studio.get("effects"))
         .and_then(Value::as_array)
-        .and_then(|items| items.iter().find(|e|
-            e.get("type").and_then(Value::as_str) == Some("kaleidoscope")
-                && e.get("visible").and_then(Value::as_bool) == Some(true))) else {
+        .and_then(|items| {
+            items.iter().find(|e| {
+                e.get("type").and_then(Value::as_str) == Some("kaleidoscope")
+                    && e.get("visible").and_then(Value::as_bool) == Some(true)
+            })
+        })
+    else {
         return KaleidoscopeGpu::default();
     };
     let settings = &effect["settings"];
     let read = |key: &str, default: f32, min: f32, max: f32| -> f32 {
-        settings.get(key).and_then(Value::as_f64)
+        settings
+            .get(key)
+            .and_then(Value::as_f64)
             .filter(|v| v.is_finite())
             .map_or(default, |v| (v as f32).clamp(min, max))
     };

@@ -13,7 +13,7 @@ const KaleidoscopeControls = lazy(() => import('./studio/KaleidoscopeControls'))
 
 export default function PrismStudioPanel() {
   const { t } = useTranslation();
-  const l = (key: string) => t('editor.effectStudio.' + key);
+  const l = (key: string): string => t(`editor.effectStudio.${key}` as 'editor.effectStudio.title');
   const selectedImage = useEditorStore((s) => s.selectedImage);
   const saved = useEditorStore((s) => s.adjustments.effectStudio);
   const { setAdjustments } = useEditorActions();
