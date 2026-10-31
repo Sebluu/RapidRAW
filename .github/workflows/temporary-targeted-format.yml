@@ -1,0 +1,26 @@
+name: Temporary targeted curves formatting
+on:
+  push:
+    branches:
+      - feature/targeted-curves
+permissions:
+  contents: read
+jobs:
+  snapshot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npx prettier --write src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx docs/targeted-curves.md
+      - name: Print exact formatted file bytes for review
+        run: |
+          for file in src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx docs/targeted-curves.md; do
+            echo "FORMATTED_START $file"
+            base64 -w0 "$file" | fold -w 2500 | sed 's/^/FORMATTED_CHUNK /'
+            echo "FORMATTED_END $file"
+          done
