@@ -44,6 +44,13 @@ jobs:
         if: success() || failure()
         run: npx prettier --check src/components/adjustments/HarmonyRulePicker.tsx src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json scripts/test-color-harmony.mjs
 
+      - name: Inspect formatter changes
+        if: success() || failure()
+        run: |
+          npx prettier --write src/utils/colorHarmony.ts
+          git diff -- src/utils/colorHarmony.ts
+
+
   rust:
     name: Rust format and compile
     runs-on: ubuntu-24.04
