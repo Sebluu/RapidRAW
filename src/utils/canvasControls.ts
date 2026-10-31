@@ -43,10 +43,16 @@ export const movedBeyondClick = (start: { x: number; y: number }, x: number, y: 
 
 // A compositor-native cursor is preferable to a React-rendered cursor: it
 // stays responsive even if a large RAW preview is being processed.
-const CURVE_PIPETTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
-  <path d="M4 28 12 20 14.5 20 22.5 12 20 9.5 12 17.5 12 20 4 28Z" fill="#f8fafc" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
-  <path d="M17.5 7.5 21.5 3.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8l-4 4Z" fill="#f8fafc" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
-  <path d="m12 20 8.5-8.5" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round"/>
+// Same Lucide Pipette geometry as the curve-panel button. Keep it as a
+// native SVG cursor so pointer movement never waits for React or Konva.
+const PIPETTE_PATHS = [
+  'm12 9-8.414 8.414A2 2 0 0 0 3 18.828v1.344a2 2 0 0 1-.586 1.414A2 2 0 0 1 3.828 21h1.344a2 2 0 0 0 1.414-.586L15 12',
+  'm18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z',
+  'm2 22 .414-.414',
+];
+const CURVE_PIPETTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="#0e1116" stroke-width="4">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
+  <g stroke="#f8fafc" stroke-width="2">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
 </svg>`;
 
 export const CURVE_PIPETTE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(CURVE_PIPETTE_SVG)}") 4 28, crosshair`;
