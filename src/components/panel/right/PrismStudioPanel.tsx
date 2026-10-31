@@ -15,7 +15,10 @@ export default function PrismStudioPanel() {
   ] as const;
 
   return (
-    <section className="flex h-full flex-col gap-4 overflow-y-auto custom-scrollbar px-3 py-4" aria-label={t('editor.prism.title')}>
+    <section
+      className="flex h-full flex-col gap-4 overflow-y-auto custom-scrollbar px-3 py-4"
+      aria-label={t('editor.prism.title')}
+    >
       <header className="flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-text-primary">
           <Blocks size={21} aria-hidden="true" />
@@ -31,7 +34,10 @@ export default function PrismStudioPanel() {
       </div>
       <div className="flex flex-col gap-2">
         {modules.map(({ id, Icon }) => (
-          <div key={id} className="flex items-center gap-3 rounded-xl border border-border bg-surface/40 px-3 py-3 opacity-80">
+          <div
+            key={id}
+            className="flex items-center gap-3 rounded-xl border border-border bg-surface/40 px-3 py-3 opacity-80"
+          >
             <Icon size={19} aria-hidden="true" className="shrink-0 text-text-secondary" />
             <div className="min-w-0">
               <p className="text-xs font-medium text-text-primary">{t(`editor.prism.${id}`)}</p>
