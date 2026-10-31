@@ -2440,12 +2440,14 @@ const ImageCanvas = memo(
     }, [isWbPickerActive, selectedImage.path, resetWbSample]);
 
     useEffect(() => {
+      const wasDragging = curveGesture.current !== null;
       curveRequest.current++;
       curveDrag.current = null;
       curveGesture.current = null;
+      if (wasDragging) setEditor({ isSliderDragging: false });
       if (curveFrame.current !== null) cancelAnimationFrame(curveFrame.current);
       curveFrame.current = null;
-    }, [curvePickerChannel, selectedImage.path]);
+    }, [curvePickerChannel, selectedImage.path, setEditor]);
 
     const publishCurveDrag = useCallback((y: number) => {
       const gesture = curveGesture.current;
@@ -2453,7 +2455,7 @@ const ImageCanvas = memo(
       if (!gesture || !drag || drag.gestureId !== gesture.id) return;
       const delta = Math.max(-255, Math.min(255,
         ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
-      if (Math.abs(delta) < 1 || Math.abs(delta - drag.lastDelta) < 0.5) return;
+      if ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5) return;
       drag.lastDelta = delta;
       setEditor({ curvePick: {
         channel: drag.channel, tone: drag.tone, baseline: drag.baseline,
@@ -3361,11 +3363,13 @@ const ImageCanvas = memo(
       window.addEventListener('mousemove', onGlobalMove, { passive: false });
       window.addEventListener('mouseup', onGlobalUp);
       window.addEventListener('touchmove', onGlobalMove, { passive: false });
+      window.addEventListener('touchend', onGlobalUp);
       window.addEventListener('touchcancel', onGlobalUp);
       return () => {
         window.removeEventListener('mousemove', onGlobalMove);
         window.removeEventListener('mouseup', onGlobalUp);
         window.removeEventListener('touchmove', onGlobalMove);
+        window.removeEventListener('touchend', onGlobalUp);
         window.removeEventListener('touchcancel', onGlobalUp);
       };
     }, [isToolActive, isWbPickerActive, curvePickerChannel, handleMove, handleUp]);
