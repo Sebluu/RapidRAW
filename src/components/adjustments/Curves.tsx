@@ -305,6 +305,46 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
   const localParametricSettingsRef = useRef<ParametricCurveSettings | null>(null);
   const isParametricMode = curveMode === 'parametric';
   const pickerActive = pickerChannel === activeChannel && !isForMask;
+
+  // Disarm before a different UI control handles the same pointer event.
+  useEffect(() => {
+    if (!pickerChannel || isForMask) return;
+
+    const onOtherPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      if (target.closest('[data-curve-picker-toggle]')) return;
+
+      // Presses on the photo remain sampling gestures; the background does not.
+      const surface = target.closest('[data-curve-picker-surface]');
+      const imageBounds = surface?.querySelector('[data-curve-picker-image-bounds]');
+      if (imageBounds) {
+        const bounds = imageBounds.getBoundingClientRect();
+        if (
+          bounds.width > 0 &&
+          bounds.height > 0 &&
+          event.clientX >= bounds.left &&
+          event.clientX <= bounds.right &&
+          event.clientY >= bounds.top &&
+          event.clientY <= bounds.bottom
+        ) return;
+      }
+
+      setEditor({ curvePickerChannel: null, curvePick: null });
+    };
+    document.addEventListener('pointerdown', onOtherPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onOtherPointerDown, true);
+  }, [pickerChannel, isForMask, setEditor]);
+
+  // Collapsing Curves or changing panels must not leave the global picker armed.
+  useEffect(() => {
+    if (isForMask) return;
+    return () => {
+      const state = useEditorStore.getState();
+      if (state.curvePickerChannel) state.setEditor({ curvePickerChannel: null, curvePick: null });
+    };
+  }, [isForMask]);
+
   useEffect(() => {
     // The image sampler currently measures the global pre-curve stage. Mask-local
     // sampling must be implemented against its own pre-mask stage, not guessed.
@@ -928,6 +968,7 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
             type="button"
             disabled={isForMask}
             aria-label="Targeted curve picker"
+            data-curve-picker-toggle
             aria-pressed={pickerActive}
             title="Pick a tone on the image"
             className={`w-8 h-8 shrink-0 rounded-md flex items-center justify-center transition-colors disabled:opacity-40 ${pickerActive ? 'bg-white text-black shadow-sm' : 'bg-surface-secondary text-text-secondary hover:text-text-primary'}`}
@@ -950,10 +991,9 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
                 key={channel}
                 className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center transition-all ${
                   selected ? 'ring-2 ring-offset-2 ring-offset-surface ring-accent' : 'bg-surface-secondary'
-                } ${channel === ActiveChannel.Luma ? 'text-text-primary' : ''}`}
+                } ${channel === ActiveChannel.Luma ? 'text-text-primary ml-1' : ''}`}
                 onClick={() => {
                   setActiveChannel(channel);
-                  if (pickerChannel) setEditor({ curvePickerChannel: channel, curvePick: null });
                 }}
                 type="button"
                 style={{

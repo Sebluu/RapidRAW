@@ -3623,7 +3623,8 @@ const ImageCanvas = memo(
       const top = y - margin - size >= 0 ? y - margin - size : y + margin;
       loupe.style.display = 'block';
       loupe.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${1 / viewportScale})`;
-      image.style.transform = `translate3d(${diameter / 2 - imgX * magnification}px, ${diameter / 2 - imgY * magnification}px, 0)`;
+      // Offset for the 3px border: the center marker must coincide with the hotspot.
+      image.style.transform = `translate3d(${diameter / 2 - 3 - imgX * magnification}px, ${diameter / 2 - 3 - imgY * magnification}px, 0)`;
     };
 
     const hideCurveLoupe = () => {
@@ -3633,6 +3634,7 @@ const ImageCanvas = memo(
     return (
       <div
         ref={rootRef}
+        data-curve-picker-surface
         className="relative"
         style={{ width: '100%', height: '100%', cursor: effectiveCursor }}
         onPointerMoveCapture={handleCurveLoupeMove}
@@ -3699,6 +3701,7 @@ const ImageCanvas = memo(
             <div className="absolute inset-0 w-full h-full">
               <svg
                 className="pointer-events-none"
+                data-curve-picker-image-bounds={imageRenderSize.width > 0 && imageRenderSize.height > 0 ? '' : undefined}
                 style={
                   imageRenderSize.width > 0 && imageRenderSize.height > 0
                     ? {

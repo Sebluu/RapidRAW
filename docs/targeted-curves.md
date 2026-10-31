@@ -76,7 +76,7 @@ When the global eyedropper is armed, the parent Editor disables all image
 panning and click-to-zoom gestures (including modifier drags). Regular
 navigation is restored immediately when the eyedropper is disabled.
 
-A 32×32 native SVG pipette cursor replaces the square cursor. On hover, a
+A compact 24×24 native SVG pipette cursor (hotspot at the actual tip, 2×22) replaces the square cursor. On hover, a
 110-pixel circular **3.5× magnifier** shows the locally zoomed existing image
 preview, positioned above and to the right of the cursor (or flipped to stay
 onscreen). It is hidden outside the image, during an active press/drag, and
@@ -86,3 +86,12 @@ imperatively. Its source is the cached display preview where available, with
 a thumbnail fallback for the WebGPU renderer. This source may not be a
 pixel-identical view of the live, recently graded GPU frame and must be
 visually verified on hardware before an upstream PR.
+
+## Picker dismissal and magnifier alignment (October 2026)
+
+The picker is now dismissed on capture-phase `pointerdown` for any other UI
+control, including Effect Studio, another adjustment, and the empty background.
+Only its own button and presses inside the visible photo keep it armed.
+Unmounting global Curves also disarms it. Clicking L/R/G/B while armed changes
+the channel and disarms, rather than silently rearming. The magnifier center
+accounts for its border and aligns its crosshair to the cursor hotspot.
