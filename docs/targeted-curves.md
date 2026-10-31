@@ -35,3 +35,36 @@ Potential follow-up: dedicated pre-curve sample compute kernel reading cached in
 ## Upstream PR scope
 
 Keep this feature separate from Color Harmonizer. Before a PR, squash commits after tests, attach before/after GIF, benchmark data, and screenshots. No claim of production readiness until builds and manual editor interaction pass.
+
+## Gesture revision (October 2026)
+
+The picker is now **press → drag vertically → release**, rather than click-to-create:
+- A plain click causes no curve mutation.
+- A single GPU sample is made at pointer-down, with late responses ignored if the
+  user releases, changes image or disarms the tool.
+- Pointer movements while sampling are retained. Once sampling finishes, the
+  latest pressed position is applied; the next moves are coalesced with
+  `requestAnimationFrame` to avoid excessive React/render updates.
+- Global mousemove/up handlers finish a gesture even when the pointer leaves the
+  image. The picker stays armed for another press, but no previously picked
+  point remains locked to the cursor.
+- Point curves use the existing point-curve representation. Parametric curves
+  target Shadows/Darks/Lights/Highlights according to the currently configured
+  split thresholds; the corresponding existing parameter and generated curve
+  are updated together, with values anchored to the start of the drag.
+- Channel buttons wrap to a second row in narrow panels and active pipette
+  uses the app's light-on-dark selection convention.
+- A tiny high-contrast square is a compositor cursor; **no magnification loupe**
+  is provided yet. Accurate zoomed sampling must use the actual render mapping,
+  and is deliberately deferred rather than adding full-image readbacks per move.
+
+**Important scope limitation:** sampling currently uses global pre-curve
+rendering. The pixel picker is disabled in mask-specific curves until a
+pre-mask sampling stage and container-scoped gesture ownership have been added.
+This avoids modifying the wrong curve and is a required item before an
+upstream-ready mask picker.
+
+Manual QA: press without moving; drag quickly before the GPU sample returns;
+release outside image; switch photos while sampling; point and parametric modes
+on all four channels; change split boundaries; narrow panel; undo/redo;
+compare RAW and JPEG. The branch CI does not substitute for these checks.
