@@ -1751,6 +1751,7 @@ pub struct KaleidoscopeGpu {
     pub edge_blur: f32,
     pub edge_vignette: f32,
     pub edge_width: f32,
+    pub edge_color: [f32; 4],
 }
 
 fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
@@ -1781,6 +1782,7 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
         Some("grid") => 3,
         Some("spiral") => 4,
         Some("fractal") => 5,
+        Some("triangle") => 6,
         _ => 0,
     };
     let axis = match settings["mirrorAxis"].as_str() {
@@ -1789,6 +1791,13 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
         Some("diagonal") => 3,
         _ => 0,
     };
+    let color = settings["edgeColor"]
+        .as_str()
+        .and_then(|color| color.strip_prefix('#'))
+        .filter(|color| color.len() == 6)
+        .and_then(|color| u32::from_str_radix(color, 16).ok())
+        .unwrap_or(0);
+    let factor = 1.0 / 255.0;
     KaleidoscopeGpu {
         mode,
         axis,
@@ -1803,6 +1812,12 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
         edge_blur: read("edgeBlur", 0.0, 0.0, 100.0) / 100.0,
         edge_vignette: read("edgeVignette", 0.0, 0.0, 100.0) / 100.0,
         edge_width: read("edgeWidth", 30.0, 1.0, 100.0) / 100.0,
+        edge_color: [
+            ((color >> 16) & 255) as f32 * factor,
+            ((color >> 8) & 255) as f32 * factor,
+            (color & 255) as f32 * factor,
+            1.0,
+        ],
         ..KaleidoscopeGpu::default()
     }
 }
