@@ -1732,7 +1732,6 @@ impl Default for GpuMat3 {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct KaleidoscopeGpu {

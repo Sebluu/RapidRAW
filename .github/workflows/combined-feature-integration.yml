@@ -27,9 +27,8 @@ jobs:
         run: node scripts/test-color-harmony.mjs
       - name: TypeScript and ESLint regression checks against upstream
         run: |
-          # This test merge has the previous test branch as first parent and
-          # the upstream main commit as second parent (HEAD^2).
-          git worktree add --detach "$RUNNER_TEMP/rapidraw-upstream" HEAD^2
+          # Compare to the upstream commit that this integration is based on.
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-upstream" f1d71a69eef813432db214f77969f567c41ff1d7
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-upstream/node_modules"
           node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
           node scripts/check-eslint-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
@@ -72,6 +71,12 @@ jobs:
             docs/color-harmonizer.md \
             docs/targeted-curves.md \
             docs/prism-studio.md
+      - name: Inspect exact formatting changes for Effect Studio components
+        if: success() || failure()
+        run: |
+          npx prettier --write src/components/panel/right/studio/KaleidoscopeControls.tsx src/utils/effectStudio.ts
+          git diff -- src/components/panel/right/studio/KaleidoscopeControls.tsx src/utils/effectStudio.ts
+
   rust:
     name: Combined Rust format and compilation
     runs-on: ubuntu-24.04
