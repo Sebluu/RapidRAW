@@ -28,8 +28,3 @@ jobs:
         if: success() || failure()
         run: npx prettier --check src/App.tsx src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/PanelSwitcher.tsx src/components/panel/right/PrismStudioPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json docs/prism-studio.md
 
-      - name: Show formatting differences (temporary)
-        if: failure()
-        run: |
-          npx prettier --write src/components/panel/right/PrismStudioPanel.tsx
-          git --no-pager diff -- src/components/panel/right/PrismStudioPanel.tsx
