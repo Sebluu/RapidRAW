@@ -1141,6 +1141,7 @@ const F_CA: u32 = 512;
 const F_AGX: u32 = 1024;
 const F_MONOCHROME: u32 = 2048;
 const F_COLOR_HARMONY: u32 = 4096;
+const F_KALEIDOSCOPE: u32 = 8192;
 
 fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
@@ -1188,6 +1189,7 @@ fn shader_features(adjustments: &AllAdjustments) -> u32 {
     );
     set(F_AGX, g.tonemapper_mode == 1);
     set(F_MONOCHROME, g.monochrome.enabled == 1);
+    set(F_KALEIDOSCOPE, g.kaleidoscope.mode != 0);
     let harmony_active = |h: &crate::image_processing::ColorHarmonyGpu| {
         h.params[3] > 0.5
             && (h.params[0] > 0.00001

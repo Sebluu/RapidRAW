@@ -1734,6 +1734,74 @@ impl Default for GpuMat3 {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
+pub struct KaleidoscopeGpu {
+    pub mode: u32,
+    pub axis: u32,
+    pub segments: u32,
+    pub grid: u32,
+    pub depth: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+    pub center_x: f32,
+    pub center_y: f32,
+    pub rotation: f32,
+    pub zoom: f32,
+    pub twist: f32,
+    pub edge_blur: f32,
+    pub edge_vignette: f32,
+    pub edge_width: f32,
+}
+
+fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
+    let Some(effect) = value.get("effectStudio")
+        .and_then(|studio| studio.get("effects"))
+        .and_then(Value::as_array)
+        .and_then(|items| items.iter().find(|e|
+            e.get("type").and_then(Value::as_str) == Some("kaleidoscope")
+                && e.get("visible").and_then(Value::as_bool) == Some(true))) else {
+        return KaleidoscopeGpu::default();
+    };
+    let settings = &effect["settings"];
+    let read = |key: &str, default: f32, min: f32, max: f32| -> f32 {
+        settings.get(key).and_then(Value::as_f64)
+            .filter(|v| v.is_finite())
+            .map_or(default, |v| (v as f32).clamp(min, max))
+    };
+    let mode = match settings["mode"].as_str() {
+        Some("radial") => 1,
+        Some("mirror") => 2,
+        Some("grid") => 3,
+        Some("spiral") => 4,
+        Some("fractal") => 5,
+        _ => 0,
+    };
+    let axis = match settings["mirrorAxis"].as_str() {
+        Some("vertical") => 1,
+        Some("quad") => 2,
+        Some("diagonal") => 3,
+        _ => 0,
+    };
+    KaleidoscopeGpu {
+        mode,
+        axis,
+        segments: read("segments", 8.0, 2.0, 32.0) as u32,
+        grid: read("grid", 4.0, 2.0, 12.0) as u32,
+        depth: read("depth", 3.0, 1.0, 6.0) as u32,
+        center_x: read("centerX", 50.0, 0.0, 100.0) / 100.0,
+        center_y: read("centerY", 50.0, 0.0, 100.0) / 100.0,
+        rotation: read("rotation", 0.0, -180.0, 180.0).to_radians(),
+        zoom: read("zoom", 1.0, 0.25, 4.0),
+        twist: read("twist", 2.0, -10.0, 10.0),
+        edge_blur: read("edgeBlur", 0.0, 0.0, 100.0) / 100.0,
+        edge_vignette: read("edgeVignette", 0.0, 0.0, 100.0) / 100.0,
+        edge_width: read("edgeWidth", 30.0, 1.0, 100.0) / 100.0,
+        ..KaleidoscopeGpu::default()
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
 pub struct GlobalAdjustments {
     pub exposure: f32,
     pub brightness: f32,
@@ -1824,6 +1892,7 @@ pub struct GlobalAdjustments {
 
     pub monochrome: MonochromeSettings,
     pub color_harmony: ColorHarmonyGpu,
+    pub kaleidoscope: KaleidoscopeGpu,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -2946,6 +3015,7 @@ fn get_global_adjustments_from_json(
         ),
 
         color_harmony: parse_color_harmony(js_adjustments),
+        kaleidoscope: parse_kaleidoscope(js_adjustments),
         monochrome: if is_monochrome {
             parse_monochrome_settings(
                 js_adjustments,
