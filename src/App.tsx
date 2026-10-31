@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -30,7 +30,7 @@ import MetadataPanel from './components/panel/right/MetadataPanel';
 import CropPanel from './components/panel/right/CropPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
-import PrismStudioPanel from './components/panel/right/PrismStudioPanel';
+const PrismStudioPanel = lazy(() => import('./components/panel/right/PrismStudioPanel'));
 import PresetsPanel from './components/panel/right/PresetsPanel';
 import TetheringPanel from './components/panel/right/TetheringPanel';
 
@@ -766,7 +766,7 @@ function App() {
         case Panel.Ai:
           return <AIPanel />;
         case Panel.Prism:
-          return <PrismStudioPanel />;
+          return <Suspense fallback={null}><PrismStudioPanel /></Suspense>;
         case Panel.Presets:
           return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
         case Panel.Tethering:
