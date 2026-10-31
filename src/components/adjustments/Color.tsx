@@ -1045,6 +1045,7 @@ function ColorPanel({
             adjustments={adjustments}
             setAdjustments={setAdjustments}
             onDragStateChange={onDragStateChange}
+            isOpen={!appSettings?.adjustmentLayout?.collapsedTools?.includes('colorHarmonizer')}
           />
         </AdjustmentSubSection>
       )}
