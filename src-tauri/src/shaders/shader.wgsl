@@ -1993,14 +1993,14 @@ fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> ve
         edge_distance = min(abs(p.x), abs(p.y)) * 2.0;
     } else if (k.mode == 3u) {
         let tiles = f32(max(k.grid, 2u));
-        let tiled = (p / aspect + vec2<f32>(0.5)) * tiles;
+        let tiled = abs(p / aspect) * tiles;
         let cell = floor(tiled);
         var sub = fract(tiled);
         if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
         if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
         edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
         return vec3<f32>(
-            clamp(center + (sub - 0.5) / max(k.zoom, 0.25), vec2<f32>(0.0), vec2<f32>(1.0)),
+            clamp(center + sub * (0.5 / max(k.zoom, 0.25)), vec2<f32>(0.0), vec2<f32>(1.0)),
             edge_distance
         );
     } else if (k.mode == 6u) {
