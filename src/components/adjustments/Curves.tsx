@@ -327,7 +327,8 @@ function CurveGraph({ adjustments, setAdjustments, theme, onDragStateChange, isF
           event.clientX <= bounds.right &&
           event.clientY >= bounds.top &&
           event.clientY <= bounds.bottom
-        ) return;
+        )
+          return;
       }
 
       setEditor({ curvePickerChannel: null, curvePick: null });
