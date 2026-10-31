@@ -39,6 +39,7 @@ Keep this feature separate from Color Harmonizer. Before a PR, squash commits af
 ## Gesture revision (October 2026)
 
 The picker is now **press → drag vertically → release**, rather than click-to-create:
+
 - A plain click causes no curve mutation.
 - A single GPU sample is made at pointer-down, with late responses ignored if the
   user releases, changes image or disarms the tool.
