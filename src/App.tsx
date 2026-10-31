@@ -30,6 +30,7 @@ import MetadataPanel from './components/panel/right/MetadataPanel';
 import CropPanel from './components/panel/right/CropPanel';
 import MasksPanel from './components/panel/right/MasksPanel';
 import AIPanel from './components/panel/right/AIPanel';
+import PrismStudioPanel from './components/panel/right/PrismStudioPanel';
 import PresetsPanel from './components/panel/right/PresetsPanel';
 import TetheringPanel from './components/panel/right/TetheringPanel';
 
@@ -764,6 +765,8 @@ function App() {
           return <MasksPanel />;
         case Panel.Ai:
           return <AIPanel />;
+        case Panel.Prism:
+          return <PrismStudioPanel />;
         case Panel.Presets:
           return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
         case Panel.Tethering:

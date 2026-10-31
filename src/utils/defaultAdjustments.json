@@ -1,7 +1,5 @@
 {
-  "activeTools": {
-    "colorHarmonizer": false
-  },
+  "activeTools": {},
   "aiDenoiseAmount": 100,
   "aiDenoiseDetail": 0,
   "aiDenoiseEnabled": false,
@@ -27,7 +25,7 @@
     "blueSaturation": 0
   },
   "colorHarmony": {
-    "enabled": false,
+    "enabled": true,
     "rule": "complementary",
     "anchor": 0,
     "nodes": [0, 180],

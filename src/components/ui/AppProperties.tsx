@@ -160,6 +160,7 @@ export enum Panel {
   Masks = 'masks',
   Metadata = 'metadata',
   Presets = 'presets',
+  Prism = 'prism',
   FolderTree = 'folderTree',
   Tethering = 'tethering',
 }

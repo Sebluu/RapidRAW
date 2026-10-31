@@ -5,6 +5,7 @@ on:
     branches:
       - feature/color-harmonizer
       - test/harmonizer-and-curves
+      - test/harmonizer-and-curves
   workflow_dispatch:
 
 permissions:

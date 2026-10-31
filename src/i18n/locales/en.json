@@ -438,6 +438,19 @@
     }
   },
   "editor": {
+    "prism": {
+      "title": "Prism Studio",
+      "subtitle": "Creative effects for your image workflow",
+      "intro": "A dedicated home for future nondestructive effects. Your regular adjustments remain untouched.",
+      "planned": "Planned",
+      "kaleidoscope": "Kaleidoscope",
+      "kaleidoscopeDesc": "Radial mirrors, symmetries and free positioning",
+      "flow": "Flow Fields",
+      "flowDesc": "Organic distortions and flow maps",
+      "feedback": "Fractal Feedback",
+      "feedbackDesc": "Recursive geometry and creative feedback",
+      "status": "No effects are applied yet — this is the architectural foundation"
+    },
     "adjustments": {
       "actions": {
         "copySectionSettings": "Copy {{section}} Settings",
@@ -936,6 +949,7 @@
         "info": "Info",
         "inpaint": "Inpaint",
         "masks": "Masks",
+        "prism": "Prism Studio",
         "presets": "Presets",
         "tethering": "Tethering"
       }

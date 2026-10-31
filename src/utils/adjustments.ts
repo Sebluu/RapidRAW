@@ -520,7 +520,7 @@ export interface ColorHarmonySettings {
 }
 
 export const DEFAULT_COLOR_HARMONY: ColorHarmonySettings = {
-  enabled: false,
+  enabled: true,
   rule: 'complementary',
   anchor: 0,
   nodes: [0, 180],
@@ -644,7 +644,7 @@ export const getDefaultCurves = (): Curves => ({
 export const DEFAULT_PARAMETRIC_CURVE = getDefaultParametricCurve();
 
 export const INITIAL_MASK_ADJUSTMENTS: MaskAdjustments = {
-  activeTools: { colorHarmonizer: false },
+  activeTools: {},
   blacks: 0,
   brightness: 0,
   clarity: 0,
