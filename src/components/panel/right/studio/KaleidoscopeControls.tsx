@@ -103,8 +103,7 @@ export default function KaleidoscopeControls({ settings, onChange }: Props) {
             onChange={(event) => change('edgeColor', event.target.value)}
           />
         </div>
-        {(settings.edgeBlur > 0 || settings.edgeVignette > 0) &&
-          slider('edgeWidth', l('edgeWidth'), 1, 100, 1, '%')}
+        {(settings.edgeBlur > 0 || settings.edgeVignette > 0) && slider('edgeWidth', l('edgeWidth'), 1, 100, 1, '%')}
       </div>
       <button
         type="button"
