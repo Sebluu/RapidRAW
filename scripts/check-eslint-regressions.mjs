@@ -9,6 +9,7 @@ import { existsSync } from 'node:fs';
 const [feature, baseline] = process.argv.slice(2);
 const files = [
   'src/components/adjustments/ColorHarmonizer.tsx',
+  'src/components/adjustments/HarmonyRulePicker.tsx',
   'src/components/adjustments/AdjustmentSection.tsx',
   'src/utils/colorHarmony.ts',
   'src/utils/adjustments.ts',

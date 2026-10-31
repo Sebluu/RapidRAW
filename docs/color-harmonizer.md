@@ -6,9 +6,9 @@ Status: **development prototype; compilation, color correctness, GPU render, and
 
 ## What it does
 
-The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a separate collapsible editing section, disabled by default, with the same React component and `colorHarmony` settings model for global adjustments and individual mask containers.
+The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a collapsible **Color → Color Harmonizer** subsection directly after Color Mixer, disabled by default through the existing eye/visibility control. The same React component and `colorHarmony` settings model are used for global adjustments and individual mask containers. Existing prototype edits with `colorHarmony.enabled` are migrated to the eye control when no explicit visibility flag exists.
 
-The interface has nine palette patterns plus a custom mode:
+The harmony preset selector uses a keyboard-accessible, portal-rendered popover so its menu stays legible and is not clipped by the nested collapsing panels. The interface has nine palette patterns plus a custom mode:
 
 - Monochromatic (1 node)
 - Analogous (3)
