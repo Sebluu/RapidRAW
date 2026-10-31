@@ -417,7 +417,7 @@ const Slider = ({
   const handleMouseDown = (e: React.MouseEvent<HTMLInputElement>) => {
     if (disabled) return;
 
-    if (Date.now() - lastUpTime.current < DOUBLE_CLICK_THRESHOLD_MS) {
+    if (e.detail > 1 || Date.now() - lastUpTime.current < DOUBLE_CLICK_THRESHOLD_MS) {
       e.preventDefault();
       return;
     }
