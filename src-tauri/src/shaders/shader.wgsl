@@ -53,8 +53,8 @@ struct KaleidoscopeGpu {
     segments: u32,
     grid: u32,
     depth: u32,
-    _pad0: u32,
-    _pad1: u32,
+    polygon_sides: u32,
+    mirror_size: f32,
     _pad2: u32,
     center_x: f32,
     center_y: f32,
@@ -2003,33 +2003,64 @@ fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> ve
             clamp(center + sub * (0.5 / max(k.zoom, 0.25)), vec2<f32>(0.0), vec2<f32>(1.0)),
             edge_distance
         );
+
     } else if (k.mode == 6u) {
-        let density = f32(max(k.grid, 2u)) * 1.5;
+        let density = 3.0 / max(k.mirror_size, 0.25);
         let q = p * density;
-        var v = 1.15470053838 * q.y;
-        var u = q.x - 0.5 * v;
-        let tile = round(vec2<f32>((2.0 * u + v) / 3.0, (u + 2.0 * v) / 3.0));
-        u -= 2.0 * tile.x - tile.y;
-        v -= 2.0 * tile.y - tile.x;
-        for (var i = 0u; i < 6u; i += 1u) {
-            if (u < 0.0) {
-                let previous_u = u;
-                u = -previous_u;
-                v += previous_u;
-            } else if (v < 0.0) {
-                let previous_v = v;
-                v = -previous_v;
-                u += previous_v;
-            } else if (u + v > 1.0) {
-                let previous_u = u;
-                u = 1.0 - v;
-                v = 1.0 - previous_u;
-            } else {
-                break;
+        if (k.polygon_sides == 3u) {
+            var v = 1.15470053838 * q.y;
+            var u = q.x - 0.5 * v;
+            let tile = round(vec2<f32>((2.0 * u + v) / 3.0, (u + 2.0 * v) / 3.0));
+            u -= 2.0 * tile.x - tile.y;
+            v -= 2.0 * tile.y - tile.x;
+            for (var i = 0u; i < 6u; i += 1u) {
+                if (u < 0.0) {
+                    let previous_u = u;
+                    u = -previous_u;
+                    v += previous_u;
+                } else if (v < 0.0) {
+                    let previous_v = v;
+                    v = -previous_v;
+                    u += previous_v;
+                } else if (u + v > 1.0) {
+                    let previous_u = u;
+                    u = 1.0 - v;
+                    v = 1.0 - previous_u;
+                } else {
+                    break;
+                }
             }
+            edge_distance = 3.0 * min(min(u, v), max(0.0, 1.0 - u - v));
+            p = vec2<f32>(u + 0.5 * v, 0.86602540378 * v) / density;
+        } else if (k.polygon_sides == 4u) {
+            let tiled = abs(q);
+            let cell = floor(tiled);
+            var sub = fract(tiled);
+            if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
+            if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
+            edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
+            p = sub / density;
+        } else {
+            let axial_v = q.y * 1.15470053838;
+            let axial_u = q.x - 0.5 * axial_v;
+            let cube = vec3<f32>(axial_u, -axial_u - axial_v, axial_v);
+            var rounded = round(cube);
+            let difference = abs(rounded - cube);
+            if (difference.x > difference.y && difference.x > difference.z) {
+                rounded.x = -rounded.y - rounded.z;
+            } else if (difference.y > difference.z) {
+                rounded.y = -rounded.x - rounded.z;
+            } else {
+                rounded.z = -rounded.x - rounded.y;
+            }
+            let cell_center = vec2<f32>(rounded.x + 0.5 * rounded.z, 0.86602540378 * rounded.z);
+            let local = q - cell_center;
+            let wedge = 6.28318530718 / f32(k.polygon_sides);
+            let angle = atan2(local.y, local.x);
+            let phase = abs(fract(angle / wedge + 0.5) - 0.5);
+            edge_distance = min(phase, 0.5 - phase) * 2.0;
+            p = length(local) * vec2<f32>(cos(phase * wedge), sin(phase * wedge)) / density;
         }
-        edge_distance = 3.0 * min(min(u, v), max(0.0, 1.0 - u - v));
-        p = vec2<f32>(u + 0.5 * v, 0.86602540378 * v) / density;
     }
     let restored = vec2<f32>(
         p.x * cosine - p.y * sine,
