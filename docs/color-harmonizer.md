@@ -127,3 +127,13 @@ converted to shader-compatible 0–1 (or 0–2) values, with width retained in
 its existing units. New images default to enabled with zero strength; legacy
 explicit off states remain off. The `getActiveTools` fallback also handles
 panel contexts where only `activeTools` and `sectionVisibility` are supplied.
+
+## Slider reset interaction (October 2026)
+
+The harmonizer's sliders use RapidRAW's shared native `Slider` and supply explicit
+reset defaults: strength 0%, width 1.00, neutral protection 50%, and each node's
+saturation 100%. Double-clicking the thumb resets the control as in other
+adjustments. The shared Slider also recognizes two quick, stationary touch taps
+on the thumb (within 320 ms / 24 px); touch scrolling and dragging are never
+interpreted as a reset. Native touch-generated double-click events are
+suppressed after a handled tap reset to avoid duplicate adjustment histories.
