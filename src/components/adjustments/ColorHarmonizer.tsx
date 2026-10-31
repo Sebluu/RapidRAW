@@ -46,11 +46,7 @@ function requestHueHistogram(path: string): Promise<number[]> {
 
   const request = invoke<number[]>(Invokes.SampleColorHarmonyHistogram, { imagePath: path })
     .then((bins) => {
-      if (
-        !Array.isArray(bins) ||
-        bins.length !== 72 ||
-        bins.some((bin) => !Number.isFinite(bin) || bin < 0)
-      ) {
+      if (!Array.isArray(bins) || bins.length !== 72 || bins.some((bin) => !Number.isFinite(bin) || bin < 0)) {
         throw new Error('Invalid color harmony histogram returned by backend');
       }
 

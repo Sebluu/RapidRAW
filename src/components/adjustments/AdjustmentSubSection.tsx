@@ -20,7 +20,12 @@ interface AdjustmentSubSectionProps {
 }
 
 export default function AdjustmentSubSection({
-  actions, children, id, order, title, initiallyCollapsed = false,
+  actions,
+  children,
+  id,
+  order,
+  title,
+  initiallyCollapsed = false,
 }: AdjustmentSubSectionProps) {
   const visibility = useToolVisibility(id);
   const { appSettings, handleSettingsChange } = useSettingsStore(

@@ -3605,8 +3605,8 @@ const ImageCanvas = memo(
       }
       // Editor's contentTransform zooms this entire canvas. Convert from
       // screen pixels to the local coordinate system used by imageRenderSize.
-      const x = (e.clientX - rect.left) * root.clientWidth / rect.width;
-      const y = (e.clientY - rect.top) * root.clientHeight / rect.height;
+      const x = ((e.clientX - rect.left) * root.clientWidth) / rect.width;
+      const y = ((e.clientY - rect.top) * root.clientHeight) / rect.height;
       const imgX = x - imageRenderSize.offsetX;
       const imgY = y - imageRenderSize.offsetY;
       if (imgX < 0 || imgY < 0 || imgX > imageRenderSize.width || imgY > imageRenderSize.height) {
