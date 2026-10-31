@@ -8,6 +8,12 @@ import { existsSync } from 'node:fs';
 
 const [feature, baseline] = process.argv.slice(2);
 const files = [
+  'src/components/panel/Editor.tsx',
+  'src/components/panel/editor/ImageCanvas.tsx',
+  'src/components/adjustments/AdjustmentSubSection.tsx',
+  'src/components/adjustments/Color.tsx',
+  'src/components/adjustments/Curves.tsx',
+  'src/utils/canvasControls.ts',
   'src/components/adjustments/ColorHarmonizer.tsx',
   'src/components/adjustments/HarmonyRulePicker.tsx',
   'src/components/adjustments/AdjustmentSection.tsx',

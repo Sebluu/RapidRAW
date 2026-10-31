@@ -81,3 +81,14 @@ does not trigger hue sampling or its retry timers. Collapsing either section
 invalidates pending JavaScript results. The GPU operation remains separate
 from the sampling and uses the existing shader specialization; no new
 per-frame histogram work was added.
+
+## Lazy histogram activation (October 2026)
+
+The Color Harmonizer subsection now starts **collapsed**, independent of
+whether its parent Color section is open. Its actual expanded state is passed
+through the existing shared `AdjustmentSubSection` component, not inferred
+from a separate UI state approximation. The Rust hue-distribution sampling
+runs only after the user explicitly expands the subsection while Color is
+open. This does not affect the per-pixel GPU harmonization path. Expansion
+is intentionally opt-in on each new panel mount to avoid unexpected analysis
+on image selection.
