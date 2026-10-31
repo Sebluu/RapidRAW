@@ -1741,8 +1741,8 @@ pub struct KaleidoscopeGpu {
     pub segments: u32,
     pub grid: u32,
     pub depth: u32,
-    _pad0: u32,
-    _pad1: u32,
+    pub polygon_sides: u32,
+    pub mirror_size: f32,
     _pad2: u32,
     pub center_x: f32,
     pub center_y: f32,
@@ -1783,7 +1783,7 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
         Some("grid") => 3,
         Some("spiral") => 4,
         Some("fractal") => 5,
-        Some("triangle") => 6,
+        Some("triangle") | Some("geometric") => 6,
         _ => 0,
     };
     let axis = match settings["mirrorAxis"].as_str() {
@@ -1799,11 +1799,18 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
         .and_then(|color| u32::from_str_radix(color, 16).ok())
         .unwrap_or(0);
     let factor = 1.0 / 255.0;
+    let default_size = if settings["mode"].as_str() == Some("triangle") {
+        2.0 / read("grid", 4.0, 2.0, 12.0)
+    } else {
+        2.0
+    };
     KaleidoscopeGpu {
         mode,
         axis,
         segments: read("segments", 8.0, 2.0, 32.0) as u32,
         grid: read("grid", 4.0, 2.0, 12.0) as u32,
+        polygon_sides: read("polygonSides", 3.0, 3.0, 12.0) as u32,
+        mirror_size: read("mirrorSize", default_size, 0.25, 8.0),
         depth: read("depth", 3.0, 1.0, 6.0) as u32,
         center_x: read("centerX", 50.0, 0.0, 100.0) / 100.0,
         center_y: read("centerY", 50.0, 0.0, 100.0) / 100.0,
