@@ -63,12 +63,7 @@ export function normalizeKaleidoscope(input: unknown): KaleidoscopeSettings {
     segments: Math.round(finite(s.segments, d.segments, 2, 32)),
     grid: Math.round(finite(s.grid, d.grid, 2, 12)),
     polygonSides: Math.round(finite(s.polygonSides, d.polygonSides, 3, 12)),
-    mirrorSize: finite(
-      s.mirrorSize,
-      s.mode === 'triangle' ? 2 / finite(s.grid, d.grid, 2, 12) : d.mirrorSize,
-      0.25,
-      8,
-    ),
+    mirrorSize: finite(s.mirrorSize, s.mode === 'triangle' ? 2 / finite(s.grid, d.grid, 2, 12) : d.mirrorSize, 0.25, 8),
     depth: Math.round(finite(s.depth, d.depth, 1, 6)),
     centerX: finite(s.centerX, d.centerX, 0, 100),
     centerY: finite(s.centerY, d.centerY, 0, 100),
