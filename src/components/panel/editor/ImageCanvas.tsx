@@ -2519,9 +2519,16 @@ const ImageCanvas = memo(
               console.error('Curve sampling failed:', err);
             }
           });
-
       },
-      [curvePickerChannel, isInsideImage, mapCanvasPointToUv, selectedImage.path, adjustments, setEditor, publishCurveDrag],
+      [
+        curvePickerChannel,
+        isInsideImage,
+        mapCanvasPointToUv,
+        selectedImage.path,
+        adjustments,
+        setEditor,
+        publishCurveDrag,
+      ],
     );
 
     const handleStart = useCallback(
@@ -3647,8 +3654,7 @@ const ImageCanvas = memo(
         onPointerMoveCapture={handleCurveLoupeMove}
         onPointerDownCapture={(e) => {
           hideCurveLoupe();
-          if (!curvePickerChannel || isCropping || isMasking || isAiEditing || showOriginal || e.button !== 0)
-            return;
+          if (!curvePickerChannel || isCropping || isMasking || isAiEditing || showOriginal || e.button !== 0) return;
           const root = rootRef.current;
           if (!root) return;
           const rect = root.getBoundingClientRect();
