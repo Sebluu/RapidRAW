@@ -95,3 +95,15 @@ Only its own button and presses inside the visible photo keep it armed.
 Unmounting global Curves also disarms it. Clicking L/R/G/B while armed changes
 the channel and disarms, rather than silently rearming. The magnifier center
 accounts for its border and aligns its crosshair to the cursor hotspot.
+
+## Loupe zoom and GPU overlay (October 2026)
+
+The pipette now samples via a pointer event on the existing image DOM surface;
+arming it does not mount a Konva stage. The native WebGPU image is never
+covered by a second, lower-resolution full-frame image just to accept picker
+input. The loupe alone reuses the cached display preview. Its effective zoom
+factor is `3.5 * transformScale`, matching the editor zoom proportionally; the
+preview is scaled with compositor transforms, without per-move image resizing
+or GPU readbacks. Mouse-up outside the photo and async sampling cancellation
+continue to use the existing gesture lifecycle. Check WGPU/CPU, 1:1/high zoom,
+RAW/JPEG, crop and transformed photos on hardware before upstream submission.
