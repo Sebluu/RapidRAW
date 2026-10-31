@@ -64,6 +64,7 @@ struct KaleidoscopeGpu {
     edge_blur: f32,
     edge_vignette: f32,
     edge_width: f32,
+    edge_color: vec4<f32>,
 }
 
 struct GlobalAdjustments {
@@ -1858,10 +1859,10 @@ fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> ve
     let cosine = cos(k.rotation);
     let sine = sin(k.rotation);
     let uv = (vec2<f32>(pixel) + 0.5) / size;
-    let relative = (uv - center) * aspect;
+    let relative = (uv - vec2<f32>(0.5)) * aspect;
     var p = vec2<f32>(
         relative.x * cosine + relative.y * sine,
-       -relative.x * sine + relative.y * cosine
+        -relative.x * sine + relative.y * cosine
     );
     var edge_distance = 1.0;
     if (k.mode == 1u || k.mode == 4u || k.mode == 5u) {
@@ -1890,30 +1891,54 @@ fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> ve
         edge_distance = min(abs(p.x), abs(p.y)) * 2.0;
     } else if (k.mode == 3u) {
         let tiles = f32(max(k.grid, 2u));
-        let tiled = uv * tiles;
+        let tiled = (p / aspect + vec2<f32>(0.5)) * tiles;
         let cell = floor(tiled);
         var sub = fract(tiled);
         if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
         if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
-        p = (sub - 0.5) * aspect / max(k.zoom, 0.25);
         edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
         return vec3<f32>(
-            clamp(center + p / aspect, vec2<f32>(0.0), vec2<f32>(1.0)),
+            clamp(center + (sub - 0.5) / max(k.zoom, 0.25), vec2<f32>(0.0), vec2<f32>(1.0)),
             edge_distance
         );
+    } else if (k.mode == 6u) {
+        let density = f32(max(k.grid, 2u)) * 1.5;
+        let q = p * density;
+        var v = 1.15470053838 * q.y;
+        var u = q.x - 0.5 * v;
+        let tile = round(vec2<f32>((2.0 * u + v) / 3.0, (u + 2.0 * v) / 3.0));
+        u -= 2.0 * tile.x - tile.y;
+        v -= 2.0 * tile.y - tile.x;
+        for (var i = 0u; i < 6u; i += 1u) {
+            if (u < 0.0) {
+                let previous_u = u;
+                u = -previous_u;
+                v += previous_u;
+            } else if (v < 0.0) {
+                let previous_v = v;
+                v = -previous_v;
+                u += previous_v;
+            } else if (u + v > 1.0) {
+                let previous_u = u;
+                u = 1.0 - v;
+                v = 1.0 - previous_u;
+            } else {
+                break;
+            }
+        }
+        edge_distance = 3.0 * min(min(u, v), max(0.0, 1.0 - u - v));
+        p = vec2<f32>(u + 0.5 * v, 0.86602540378 * v) / density;
     }
     let restored = vec2<f32>(
         p.x * cosine - p.y * sine,
         p.x * sine + p.y * cosine
     );
     return vec3<f32>(
-        clamp(center + restored / (aspect * max(k.zoom, 0.25)),
-            vec2<f32>(0.0), vec2<f32>(1.0)),
+        clamp(center + restored / (aspect * max(k.zoom, 0.25)), vec2<f32>(0.0), vec2<f32>(1.0)),
         edge_distance
     );
 }
 
-// Explicit bilinear fetch supports non-filterable float input formats.
 fn kaleidoscope_bilinear(uv: vec2<f32>, size: vec2<f32>) -> vec4<f32> {
     let pos = uv * size - 0.5;
     let whole = floor(pos);
@@ -2295,7 +2320,9 @@ fn main(
     }
 
     if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
-        final_rgb *= 1.0 - edge_strength * adjustments.global.kaleidoscope.edge_vignette * 0.85;
+        let k = adjustments.global.kaleidoscope;
+        let influence = clamp(edge_strength * k.edge_vignette, 0.0, 1.0);
+        final_rgb = mix(final_rgb, k.edge_color.rgb, influence);
     }
 
     if (adjustments.global.show_clipping == 1u) {
