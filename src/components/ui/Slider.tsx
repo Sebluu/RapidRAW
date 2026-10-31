@@ -44,6 +44,8 @@ interface SliderProps {
 }
 
 const DOUBLE_CLICK_THRESHOLD_MS = 150;
+const DOUBLE_TAP_THRESHOLD_MS = 320;
+const DOUBLE_TAP_DISTANCE_PX = 24;
 const FINE_ADJUSTMENT_MULTIPLIER = 0.2;
 const TOUCH_DRAG_THRESHOLD_PX = 10;
 const TOUCH_THUMB_HIT_RADIUS_PX = 24;
@@ -81,6 +83,8 @@ const Slider = ({
   const [isLabelHovered, setIsLabelHovered] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastUpTime = useRef(0);
+  const lastThumbTapRef = useRef<{ time: number; x: number; y: number } | null>(null);
+  const lastTouchResetTimeRef = useRef(0);
   const lastPointerXRef = useRef<number>(0);
   const accumulatedValueRef = useRef<number>(0);
   const pendingTouchRef = useRef<{
@@ -437,7 +441,10 @@ const Slider = ({
   const handleTouchStart = (e: React.TouchEvent<HTMLInputElement>) => {
     if (disabled) return;
 
-    if (e.touches.length === 0) return;
+    if (e.touches.length !== 1) {
+      lastThumbTapRef.current = null;
+      return;
+    }
 
     const touch = e.touches[0];
     suppressTouchChangeRef.current = true;
@@ -450,6 +457,7 @@ const Slider = ({
 
     if (Math.abs(touch.clientX - thumbX) > TOUCH_THUMB_HIT_RADIUS_PX) {
       pendingTouchRef.current = null;
+      lastThumbTapRef.current = null;
       return;
     }
 
@@ -505,9 +513,51 @@ const Slider = ({
     onChange({ target: { value: snappedValue } });
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (event: React.TouchEvent<HTMLInputElement>) => {
+    const candidate = pendingTouchRef.current;
     pendingTouchRef.current = null;
     suppressTouchChangeRef.current = false;
+
+    // Only quick, stationary taps on the thumb count; scrolling and dragging
+    // must never be mistaken for the slider's reset gesture.
+    if (event.type === 'touchcancel' || !candidate || isDragging) {
+      lastThumbTapRef.current = null;
+      return;
+    }
+
+    const touch = event.changedTouches[0];
+    if (
+      !touch ||
+      Math.abs(touch.clientX - candidate.startX) > TOUCH_DRAG_THRESHOLD_PX ||
+      Math.abs(touch.clientY - candidate.startY) > TOUCH_DRAG_THRESHOLD_PX
+    ) {
+      lastThumbTapRef.current = null;
+      return;
+    }
+
+    const now = Date.now();
+    const previous = lastThumbTapRef.current;
+    if (
+      previous &&
+      now - previous.time <= DOUBLE_TAP_THRESHOLD_MS &&
+      Math.abs(touch.clientX - previous.x) <= DOUBLE_TAP_DISTANCE_PX &&
+      Math.abs(touch.clientY - previous.y) <= DOUBLE_TAP_DISTANCE_PX
+    ) {
+      lastThumbTapRef.current = null;
+      lastTouchResetTimeRef.current = now;
+      if (event.cancelable) event.preventDefault();
+      handleReset();
+      return;
+    }
+
+    lastThumbTapRef.current = { time: now, x: touch.clientX, y: touch.clientY };
+  };
+
+  const handleRangeDoubleClick = () => {
+    // A mobile browser may synthesize dblclick after touchend. A touch reset
+    // has already fired, so don't create a duplicate history entry.
+    if (Date.now() - lastTouchResetTimeRef.current < 500) return;
+    handleReset();
   };
 
   const handleValueClick = () => {
@@ -691,7 +741,7 @@ const Slider = ({
           max={String(maxPosition)}
           min={String(minPosition)}
           onChange={handleChange}
-          onDoubleClick={handleReset}
+          onDoubleClick={handleRangeDoubleClick}
           onKeyDown={handleRangeKeyDown}
           onMouseDown={handleMouseDown}
           onTouchStart={handleTouchStart}
