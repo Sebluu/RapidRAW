@@ -154,7 +154,8 @@ until explicitly changed, preserving nondestructive editing and exports.
 The underlying shader math and serialized parameters are unchanged.
 
 `Match Dominant Hues` continues to rotate the full scheme in linked modes,
-including monochromatic. In **Custom**, the existing single 72-bin OKLCH
+including monochromatic, using the same smoothed peak estimate. A colorless
+histogram leaves every rule unchanged rather than choosing an arbitrary hue. In **Custom**, the existing single 72-bin OKLCH
 histogram is circularly smoothed and local hue maxima are ranked by mass.
 Non-maximum suppression (30°) prevents several bins of the same color cloud
 occupying multiple nodes. The first node matches the strongest distinct
