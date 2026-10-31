@@ -71,3 +71,13 @@ darktable's optional **spatial smoothing** is **not implemented** in this first 
 ## Upstream strategy
 
 Keep this change independent of targeted curves. Merge or rebase from upstream main after validation, preserve developer-facing test evidence and benchmark numbers, and only then propose it as a PR. Avoid unverified claims such as 'darktable pixel parity' or 'zero performance cost under all conditions'.
+
+## Histogram loading optimization (October 2026)
+
+The cached-preview hue histogram is now evaluated only while **both** the
+parent Color adjustment section and Color Harmonizer subsection are expanded.
+Opening an image or switching between images when either section is closed
+does not trigger hue sampling or its retry timers. Collapsing either section
+invalidates pending JavaScript results. The GPU operation remains separate
+from the sampling and uses the existing shader specialization; no new
+per-frame histogram work was added.

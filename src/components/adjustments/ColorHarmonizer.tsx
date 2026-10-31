@@ -14,6 +14,7 @@ type Props = {
   adjustments: Adjustments;
   setAdjustments: (updater: (prev: Adjustments) => Adjustments) => void;
   onDragStateChange?: (dragging: boolean) => void;
+  isOpen?: boolean;
 };
 
 const WHEEL = 240;
@@ -71,7 +72,7 @@ function Range({
   );
 }
 
-export default function ColorHarmonizer({ adjustments, setAdjustments, onDragStateChange }: Props) {
+export default function ColorHarmonizer({ adjustments, setAdjustments, onDragStateChange, isOpen = false }: Props) {
   const { t } = useTranslation();
   const harmony: ColorHarmonySettings = adjustments.colorHarmony ?? DEFAULT_COLOR_HARMONY;
   const selectedPath = useEditorStore((state) => state.selectedImage?.path);
@@ -88,7 +89,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
     // frames. Query the *requested* image identity and retry only while that
     // particular preview is loading. Never display a previous image's bins.
     setHistogram([]);
-    if (!selectedPath) {
+    if (!selectedPath || !isOpen) {
       setSampling(false);
       return;
     }
@@ -122,7 +123,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
       cancelled = true;
       if (retryTimer !== undefined) clearTimeout(retryTimer);
     };
-  }, [selectedPath]);
+  }, [selectedPath, isOpen]);
 
   const update = useCallback(
     (change: (current: ColorHarmonySettings) => ColorHarmonySettings) => {

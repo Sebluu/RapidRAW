@@ -48,6 +48,7 @@ interface ColorPanelProps {
   appSettings: AppSettings | null;
   asShotWhiteBalance?: WhiteBalance;
   isForMask?: boolean;
+  isSectionOpen?: boolean;
   isWbPickerActive?: boolean;
   toggleWbPicker?: () => void;
   onDragStateChange?: (isDragging: boolean) => void;
@@ -685,6 +686,7 @@ function ColorPanel({
   setAdjustments,
   appSettings,
   isForMask = false,
+  isSectionOpen = false,
   isWbPickerActive = false,
   toggleWbPicker,
   onDragStateChange,
@@ -1045,6 +1047,7 @@ function ColorPanel({
             adjustments={adjustments}
             setAdjustments={setAdjustments}
             onDragStateChange={onDragStateChange}
+            isOpen={isSectionOpen && !appSettings?.adjustmentLayout?.collapsedTools?.includes('colorHarmonizer')}
           />
         </AdjustmentSubSection>
       )}
