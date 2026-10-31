@@ -126,7 +126,7 @@ viewport could escape the circular overflow clip and soften the main image
 while simply hovering. The decoded preview is now a display:none source and
 only the precise 104×104 inner-loupe crop is copied to a fixed-size canvas,
 at up to 2× display resolution; the canvas is clipped to the same 110px
-circle. The expensive *engine* image remains untouched. The loupe zoom still
+circle. The expensive _engine_ image remains untouched. The loupe zoom still
 tracks the editor zoom and retains the existing hotspot alignment. There
 are **no GPU readbacks or Rust invocations on pointer move**. The loupe
 draws a bounded small crop from the cached preview, which may itself have
