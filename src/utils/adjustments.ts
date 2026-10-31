@@ -1349,5 +1349,18 @@ export const mergeActiveTools = (base: ToolStateSource, overrides: ToolStateSour
   ...getActiveTools(overrides),
 });
 
-export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] =>
-  reconcileOrder(getAdjustmentSectionToolIds(section), toolOrder?.[section]);
+export const getAdjustmentToolOrder = (section: string, toolOrder?: Record<string, string[]>): string[] => {
+  const saved = toolOrder?.[section];
+  const order = reconcileOrder(getAdjustmentSectionToolIds(section), saved);
+  // Existing saved color layouts predate this tool. Insert it after Color
+  // Mixer unless the user has explicitly customized its position.
+  if (section === 'color' && !saved?.includes('colorHarmonizer')) {
+    const currentIndex = order.indexOf('colorHarmonizer');
+    const mixerIndex = order.indexOf('colorMixer');
+    if (currentIndex !== -1 && mixerIndex !== -1) {
+      order.splice(currentIndex, 1);
+      order.splice(order.indexOf('colorMixer') + 1, 0, 'colorHarmonizer');
+    }
+  }
+  return order;
+};

@@ -40,7 +40,7 @@ jobs:
         run: npm run build
       - name: Formatting of changed frontend files
         if: success() || failure()
-        run: npx prettier --check src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json
+        run: npx prettier --check src/components/adjustments/HarmonyRulePicker.tsx src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json
 
   rust:
     name: Rust format and compile
