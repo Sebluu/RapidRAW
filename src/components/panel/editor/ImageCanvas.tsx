@@ -3701,7 +3701,9 @@ const ImageCanvas = memo(
             <div className="absolute inset-0 w-full h-full">
               <svg
                 className="pointer-events-none"
-                data-curve-picker-image-bounds={imageRenderSize.width > 0 && imageRenderSize.height > 0 ? '' : undefined}
+                data-curve-picker-image-bounds={
+                  imageRenderSize.width > 0 && imageRenderSize.height > 0 ? '' : undefined
+                }
                 style={
                   imageRenderSize.width > 0 && imageRenderSize.height > 0
                     ? {
