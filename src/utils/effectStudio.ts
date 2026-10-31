@@ -1,5 +1,4 @@
-/** Versioned, nondestructive creative effects, stored with each image's adjustments. */
-export type KaleidoscopeMode = 'radial' | 'mirror' | 'grid' | 'spiral' | 'fractal';
+export type KaleidoscopeMode = 'radial' | 'mirror' | 'grid' | 'spiral' | 'fractal' | 'triangle';
 export type MirrorAxis = 'horizontal' | 'vertical' | 'quad' | 'diagonal';
 
 export interface KaleidoscopeSettings {
@@ -15,6 +14,7 @@ export interface KaleidoscopeSettings {
   twist: number;
   edgeBlur: number;
   edgeVignette: number;
+  edgeColor: string;
   edgeWidth: number;
 }
 export interface KaleidoscopeEffect {
@@ -32,12 +32,12 @@ export const EMPTY_EFFECT_STUDIO: EffectStudioState = { version: 1, effects: [] 
 export const DEFAULT_KALEIDOSCOPE: KaleidoscopeSettings = {
   mode: 'radial', mirrorAxis: 'quad', segments: 8, grid: 4, depth: 3,
   centerX: 50, centerY: 50, rotation: 0, zoom: 1, twist: 2,
-  edgeBlur: 0, edgeVignette: 0, edgeWidth: 30,
+  edgeBlur: 0, edgeVignette: 0, edgeColor: '#000000', edgeWidth: 30,
 };
 const finite = (value: unknown, fallback: number, low: number, high: number) =>
   typeof value === 'number' && Number.isFinite(value)
     ? Math.min(high, Math.max(low, value)) : fallback;
-const modes: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'spiral', 'fractal'];
+const modes: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'spiral', 'fractal', 'triangle'];
 const axes: MirrorAxis[] = ['horizontal', 'vertical', 'quad', 'diagonal'];
 
 export function normalizeKaleidoscope(input: unknown): KaleidoscopeSettings {
@@ -56,10 +56,10 @@ export function normalizeKaleidoscope(input: unknown): KaleidoscopeSettings {
     twist: finite(s.twist, d.twist, -10, 10),
     edgeBlur: finite(s.edgeBlur, d.edgeBlur, 0, 100),
     edgeVignette: finite(s.edgeVignette, d.edgeVignette, 0, 100),
+    edgeColor: typeof s.edgeColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.edgeColor) ? s.edgeColor : d.edgeColor,
     edgeWidth: finite(s.edgeWidth, d.edgeWidth, 1, 100),
   };
 }
-/** Unknown future effects remain in saved metadata; only known types render in v1. */
 export function normalizeEffectStudio(input: unknown): EffectStudioState {
   const raw = (input && typeof input === 'object' ? input : {}) as { effects?: unknown };
   const effects = Array.isArray(raw.effects) ? raw.effects : [];

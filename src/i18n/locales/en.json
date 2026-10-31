@@ -440,7 +440,13 @@
       "segmentEdges": "Segment Edge Effects",
       "lensSoftness": "Lens softness",
       "edgeVignette": "Edge vignette",
+      "edgeColor": "Edge color",
       "edgeWidth": "Edge width",
+      "triangle": "Triangular Mirrors",
+      "sourcePosition": "Source position",
+      "sourcePositionDesc": "Move the photo inside the pattern. Symmetry stays at the image center.",
+      "sourceX": "Source X",
+      "sourceY": "Source Y",
       "reset": "Reset settings"
     },
     "prism": {

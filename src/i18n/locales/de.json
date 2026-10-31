@@ -440,7 +440,13 @@
       "segmentEdges": "Segment-Randeffekte",
       "lensSoftness": "Objektivweichzeichnung",
       "edgeVignette": "Randvignette",
+      "edgeColor": "Randfarbe",
       "edgeWidth": "Randbreite",
+      "triangle": "Dreieckspiegel",
+      "sourcePosition": "Bildausschnitt",
+      "sourcePositionDesc": "Verschiebe den Bildinhalt. Die Spiegelachsen bleiben in der Mitte.",
+      "sourceX": "Motiv X",
+      "sourceY": "Motiv Y",
       "reset": "Einstellungen zurücksetzen"
     },
     "prism": {
