@@ -27,7 +27,10 @@ export default function HarmonyRulePicker({ ariaLabel, value, options, onChange 
   const popupRef = useRef<HTMLDivElement>(null);
   const optionRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const id = useId();
-  const selectedIndex = Math.max(0, options.findIndex((item) => item.value === value));
+  const selectedIndex = Math.max(
+    0,
+    options.findIndex((item) => item.value === value),
+  );
 
   useLayoutEffect(() => {
     if (!open) return;
@@ -127,41 +130,47 @@ export default function HarmonyRulePicker({ ariaLabel, value, options, onChange 
           <span className="truncate text-left text-xs font-medium text-text-primary">
             {options[selectedIndex]?.label}
           </span>
-          <ChevronDown size={15} className={`shrink-0 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown
+            size={15}
+            className={`shrink-0 text-text-secondary transition-transform ${open ? 'rotate-180' : ''}`}
+          />
         </span>
       </button>
-      {open && createPortal(
-        <div
-          ref={popupRef}
-          id={id}
-          role="listbox"
-          aria-label={ariaLabel}
-          className="fixed z-[9999] overflow-y-auto rounded-2xl border border-border-color bg-bg-secondary p-1.5 shadow-2xl"
-          style={{ top: bounds.top, left: bounds.left, width: bounds.width, maxHeight: bounds.maxHeight }}
-          onKeyDown={handleKey}
-        >
-          {options.map((option, index) => (
-            <button
-              key={option.value}
-              ref={(element) => { optionRefs.current[index] = element; }}
-              type="button"
-              role="option"
-              aria-selected={option.value === value}
-              onMouseEnter={() => setFocusedIndex(index)}
-              onClick={() => choose(index)}
-              className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
-                option.value === value
-                  ? 'bg-accent/15 font-semibold text-text-primary'
-                  : 'text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary'
-              }`}
-            >
-              <span className="min-w-0 truncate">{option.label}</span>
-              {option.value === value && <Check size={15} className="shrink-0 text-accent" />}
-            </button>
-          ))}
-        </div>,
-        document.body,
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={popupRef}
+            id={id}
+            role="listbox"
+            aria-label={ariaLabel}
+            className="fixed z-[9999] overflow-y-auto rounded-2xl border border-border-color bg-bg-secondary p-1.5 shadow-2xl"
+            style={{ top: bounds.top, left: bounds.left, width: bounds.width, maxHeight: bounds.maxHeight }}
+            onKeyDown={handleKey}
+          >
+            {options.map((option, index) => (
+              <button
+                key={option.value}
+                ref={(element) => {
+                  optionRefs.current[index] = element;
+                }}
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onMouseEnter={() => setFocusedIndex(index)}
+                onClick={() => choose(index)}
+                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                  option.value === value
+                    ? 'bg-accent/15 font-semibold text-text-primary'
+                    : 'text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary'
+                }`}
+              >
+                <span className="min-w-0 truncate">{option.label}</span>
+                {option.value === value && <Check size={15} className="shrink-0 text-accent" />}
+              </button>
+            ))}
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

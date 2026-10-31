@@ -1041,7 +1041,11 @@ function ColorPanel({
           order={toolOrder.indexOf('colorHarmonizer')}
           title={t('adjustments.colorHarmonizer.title')}
         >
-          <ColorHarmonizer adjustments={adjustments} setAdjustments={setAdjustments} onDragStateChange={onDragStateChange} />
+          <ColorHarmonizer
+            adjustments={adjustments}
+            setAdjustments={setAdjustments}
+            onDragStateChange={onDragStateChange}
+          />
         </AdjustmentSubSection>
       )}
 
