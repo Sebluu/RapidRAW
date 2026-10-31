@@ -46,6 +46,26 @@ struct MonochromeSettings {
     _pad3: f32,
 }
 
+
+struct KaleidoscopeGpu {
+    mode: u32,
+    axis: u32,
+    segments: u32,
+    grid: u32,
+    depth: u32,
+    _pad0: u32,
+    _pad1: u32,
+    _pad2: u32,
+    center_x: f32,
+    center_y: f32,
+    rotation: f32,
+    zoom: f32,
+    twist: f32,
+    edge_blur: f32,
+    edge_vignette: f32,
+    edge_width: f32,
+}
+
 struct GlobalAdjustments {
     exposure: f32,
     brightness: f32,
@@ -135,6 +155,7 @@ struct GlobalAdjustments {
     sharpness_threshold: f32,
 
     monochrome: MonochromeSettings,
+    kaleidoscope: KaleidoscopeGpu,
 }
 
 struct MaskAdjustments {
@@ -276,6 +297,7 @@ const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
+const F_KALEIDOSCOPE: u32 = 8192u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -1828,6 +1850,86 @@ fn apply_halation(
     return contrast_reduced + halation_glow * amount * 2.5;
 }
 
+
+// Work in image-space and preserve aspect ratio in every preview resolution.
+fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> vec3<f32> {
+    let center = vec2<f32>(k.center_x, k.center_y);
+    let aspect = size / min(size.x, size.y);
+    let cosine = cos(k.rotation);
+    let sine = sin(k.rotation);
+    let uv = (vec2<f32>(pixel) + 0.5) / size;
+    let relative = (uv - center) * aspect;
+    var p = vec2<f32>(
+        relative.x * cosine + relative.y * sine,
+       -relative.x * sine + relative.y * cosine
+    );
+    var edge_distance = 1.0;
+    if (k.mode == 1u || k.mode == 4u || k.mode == 5u) {
+        var radius = length(p);
+        var theta = atan2(p.y, p.x);
+        let wedge = 6.28318530718 / f32(max(k.segments, 2u));
+        if (k.mode == 4u) {
+            theta -= k.twist * log(1.0 + radius * 4.0);
+        }
+        let phase = abs(fract(theta / wedge + 0.5) - 0.5);
+        edge_distance = min(phase, 0.5 - phase) * 2.0;
+        let folded = phase * wedge;
+        if (k.mode == 5u) {
+            for (var d = 1u; d < 6u; d += 1u) {
+                if (d >= k.depth) { break; }
+                radius = abs(fract(radius * 2.0) * 2.0 - 1.0);
+            }
+        }
+        p = radius * vec2<f32>(cos(folded), sin(folded));
+    } else if (k.mode == 2u) {
+        if (k.axis == 0u || k.axis == 2u) { p.y = abs(p.y); }
+        if (k.axis == 1u || k.axis == 2u) { p.x = abs(p.x); }
+        if (k.axis == 3u) {
+            p = vec2<f32>(max(p.x, p.y), min(p.x, p.y));
+        }
+        edge_distance = min(abs(p.x), abs(p.y)) * 2.0;
+    } else if (k.mode == 3u) {
+        let tiles = f32(max(k.grid, 2u));
+        let tiled = uv * tiles;
+        let cell = floor(tiled);
+        var sub = fract(tiled);
+        if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
+        if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
+        p = (sub - 0.5) * aspect / max(k.zoom, 0.25);
+        edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
+        return vec3<f32>(
+            clamp(center + p / aspect, vec2<f32>(0.0), vec2<f32>(1.0)),
+            edge_distance
+        );
+    }
+    let restored = vec2<f32>(
+        p.x * cosine - p.y * sine,
+        p.x * sine + p.y * cosine
+    );
+    return vec3<f32>(
+        clamp(center + restored / (aspect * max(k.zoom, 0.25)),
+            vec2<f32>(0.0), vec2<f32>(1.0)),
+        edge_distance
+    );
+}
+
+// Explicit bilinear fetch supports non-filterable float input formats.
+fn kaleidoscope_bilinear(uv: vec2<f32>, size: vec2<f32>) -> vec4<f32> {
+    let pos = uv * size - 0.5;
+    let whole = floor(pos);
+    let frac = clamp(pos - whole, vec2<f32>(0.0), vec2<f32>(1.0));
+    let limit = vec2<i32>(size) - 1;
+    let p00 = clamp(vec2<i32>(whole), vec2<i32>(0), limit);
+    let p10 = clamp(vec2<i32>(whole) + vec2<i32>(1, 0), vec2<i32>(0), limit);
+    let p01 = clamp(vec2<i32>(whole) + vec2<i32>(0, 1), vec2<i32>(0), limit);
+    let p11 = clamp(vec2<i32>(whole) + vec2<i32>(1, 1), vec2<i32>(0), limit);
+    return mix(
+        mix(textureLoad(input_texture, p00, 0), textureLoad(input_texture, p10, 0), frac.x),
+        mix(textureLoad(input_texture, p01, 0), textureLoad(input_texture, p11, 0), frac.x),
+        frac.y
+    );
+}
+
 @compute @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) id: vec3<u32>,
@@ -1855,16 +1957,44 @@ fn main(
     let out_dims = vec2<u32>(textureDimensions(output_texture));
     if (id.x >= out_dims.x || id.y >= out_dims.y) { return; }
 
-    let absolute_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
+    let output_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
+    var absolute_coord = output_coord;
+    var soft_source = vec4<f32>(0.0);
+    var edge_strength = 0.0;
+    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
+        let k = adjustments.global.kaleidoscope;
+        let mapped = kaleidoscope_map(output_coord, full_dims, k);
+        absolute_coord = min(vec2<u32>(mapped.xy * full_dims),
+            vec2<u32>(full_dims) - vec2<u32>(1u));
+        soft_source = kaleidoscope_bilinear(mapped.xy, full_dims);
+        edge_strength = 1.0 - smoothstep(0.0, max(0.001, k.edge_width), mapped.z);
+        if (k.edge_blur > 0.0 && edge_strength > 0.001) {
+            let radius = k.edge_blur * edge_strength * 16.0;
+            let dx = vec2<f32>(radius / full_dims.x, 0.0);
+            let dy = vec2<f32>(0.0, radius / full_dims.y);
+            let blurred = (
+                soft_source * 4.0
+                + kaleidoscope_bilinear(mapped.xy - dx, full_dims)
+                + kaleidoscope_bilinear(mapped.xy + dx, full_dims)
+                + kaleidoscope_bilinear(mapped.xy - dy, full_dims)
+                + kaleidoscope_bilinear(mapped.xy + dy, full_dims)
+            ) * 0.125;
+            soft_source = mix(soft_source, blurred, edge_strength * k.edge_blur);
+        }
+    }
     let absolute_coord_i = vec2<i32>(absolute_coord);
 
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
     var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
+    var original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
+    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
+        color_from_texture = soft_source.rgb;
+        original_alpha = soft_source.a;
+    }
     if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
         color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
     }
-    let original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
 
     var initial_linear_rgb: vec3<f32>;
     let is_raw = adjustments.global.is_raw_image;
@@ -2162,6 +2292,10 @@ fn main(
         let noise_rough = gradient_noise(rough_coord + vec2<f32>(5.2, 1.3));
         let noise_val = mix(noise_base, noise_rough, roughness);
         final_rgb += vec3<f32>(noise_val) * amount * luma_mask;
+    }
+
+    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
+        final_rgb *= 1.0 - edge_strength * adjustments.global.kaleidoscope.edge_vignette * 0.85;
     }
 
     if (adjustments.global.show_clipping == 1u) {
