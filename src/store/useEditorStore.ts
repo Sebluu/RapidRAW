@@ -80,6 +80,7 @@ interface EditorState {
     baseline: number;
     delta: number;
     sequence: number;
+    gestureId: number;
   } | null;
   isRelightPickerActive: boolean;
   activeRelightLightId: string | null;
