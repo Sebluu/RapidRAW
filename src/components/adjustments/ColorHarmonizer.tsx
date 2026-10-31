@@ -50,17 +50,31 @@ function requestHueHistogram(path: string): Promise<number[]> {
         throw new Error('Invalid color harmony histogram returned by backend');
       }
 
-      hueHistogramCache.set(path, bins);
-      if (hueHistogramCache.size > HISTOGRAM_CACHE_LIMIT) {
-        const oldestPath = hueHistogramCache.keys().next().value;
-        if (oldestPath !== undefined) hueHistogramCache.delete(oldestPath);
+      // A superseded in-flight request may finish late. Its caller may use
+      // the result, but must not move a no-longer-requested image into the LRU.
+      if (pendingHueHistograms.get(path) === request) {
+        hueHistogramCache.delete(path);
+        hueHistogramCache.set(path, bins);
+        while (hueHistogramCache.size > HISTOGRAM_CACHE_LIMIT) {
+          const oldestPath = hueHistogramCache.keys().next().value;
+          if (oldestPath === undefined) break;
+          hueHistogramCache.delete(oldestPath);
+        }
       }
       return bins;
     })
     .finally(() => {
-      pendingHueHistograms.delete(path);
+      if (pendingHueHistograms.get(path) === request) pendingHueHistograms.delete(path);
     });
   pendingHueHistograms.set(path, request);
+  // Never retain more than 48 promises, even during rapid folder navigation.
+  // Evicted requests still settle for their original callers; they just won't
+  // be cached when they resolve.
+  while (pendingHueHistograms.size > HISTOGRAM_CACHE_LIMIT) {
+    const oldestPath = pendingHueHistograms.keys().next().value;
+    if (oldestPath === undefined) break;
+    pendingHueHistograms.delete(oldestPath);
+  }
   return request;
 }
 const hueColor = (hue: number) => `oklch(70% 0.13 ${wrapHue(hue)}deg)`;
