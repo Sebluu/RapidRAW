@@ -65,7 +65,8 @@ export function normalizeKaleidoscope(input: unknown): KaleidoscopeSettings {
     twist: finite(s.twist, d.twist, -10, 10),
     edgeBlur: finite(s.edgeBlur, d.edgeBlur, 0, 100),
     edgeVignette: finite(s.edgeVignette, d.edgeVignette, 0, 100),
-    edgeColor: typeof s.edgeColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.edgeColor) ? s.edgeColor : d.edgeColor,
+    edgeColor:
+      typeof s.edgeColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(s.edgeColor) ? s.edgeColor : d.edgeColor,
     edgeWidth: finite(s.edgeWidth, d.edgeWidth, 1, 100),
   };
 }
