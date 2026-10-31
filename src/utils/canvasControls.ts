@@ -50,9 +50,9 @@ const PIPETTE_PATHS = [
   'm18 9 .4.4a1 1 0 1 1-3 3l-3.8-3.8a1 1 0 1 1 3-3l.4.4 3.4-3.4a1 1 0 1 1 3 3z',
   'm2 22 .414-.414',
 ];
-const CURVE_PIPETTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32" fill="none" stroke-linecap="round" stroke-linejoin="round">
-  <g stroke="#0e1116" stroke-width="4">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
-  <g stroke="#f8fafc" stroke-width="2">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
+const CURVE_PIPETTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <g stroke="#0e1116" stroke-width="3.2">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
+  <g stroke="#f8fafc" stroke-width="1.8">${PIPETTE_PATHS.map((d) => `<path d="${d}"/>`).join('')}</g>
 </svg>`;
 
-export const CURVE_PIPETTE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(CURVE_PIPETTE_SVG)}") 4 28, crosshair`;
+export const CURVE_PIPETTE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(CURVE_PIPETTE_SVG)}") 2 22, crosshair`;
