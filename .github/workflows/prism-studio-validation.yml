@@ -1,0 +1,29 @@
+name: Prism Studio — validation
+on:
+  push:
+    branches:
+      - feature/prism-studio
+  workflow_dispatch:
+
+permissions:
+  contents: read
+concurrency:
+  group: prism-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Production build
+        run: npm run build
+      - name: Formatting (modified files)
+        if: success() || failure()
+        run: npx prettier --check src/App.tsx src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/PanelSwitcher.tsx src/components/panel/right/PrismStudioPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json docs/prism-studio.md
