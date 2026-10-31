@@ -1,16 +1,5 @@
 import { lazy, Suspense, useState } from 'react';
-import {
-  Blocks,
-  ChevronDown,
-  ChevronRight,
-  Eye,
-  EyeOff,
-  GitBranch,
-  Orbit,
-  Plus,
-  Shapes,
-  Trash2,
-} from 'lucide-react';
+import { Blocks, ChevronDown, ChevronRight, Eye, EyeOff, GitBranch, Orbit, Plus, Shapes, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
@@ -38,10 +27,7 @@ export default function PrismStudioPanel() {
   const effect = normalizeEffectStudio(saved).effects[0];
 
   const change = (fn: (s: EffectStudioState) => EffectStudioState, label?: string) =>
-    setAdjustments(
-      (prev) => ({ ...prev, effectStudio: fn(normalizeEffectStudio(prev.effectStudio)) }),
-      label,
-    );
+    setAdjustments((prev) => ({ ...prev, effectStudio: fn(normalizeEffectStudio(prev.effectStudio)) }), label);
 
   const addEffect = () => {
     change((s) => ({ ...s, effects: [createKaleidoscope()] }), 'Add Kaleidoscope');
@@ -52,10 +38,7 @@ export default function PrismStudioPanel() {
     change((s) => ({ ...s, effects: s.effects.map((e) => ({ ...e, settings })) }));
 
   const toggleVisibility = () =>
-    change(
-      (s) => ({ ...s, effects: s.effects.map((e) => ({ ...e, visible: !e.visible })) }),
-      'Toggle Kaleidoscope',
-    );
+    change((s) => ({ ...s, effects: s.effects.map((e) => ({ ...e, visible: !e.visible })) }), 'Toggle Kaleidoscope');
 
   const removeEffect = () => {
     change((s) => ({ ...s, effects: [] }), 'Remove Kaleidoscope');
@@ -63,10 +46,7 @@ export default function PrismStudioPanel() {
   };
 
   return (
-    <section
-      className="flex h-full flex-col gap-3 overflow-y-auto custom-scrollbar px-3 py-4"
-      aria-label={l('title')}
-    >
+    <section className="flex h-full flex-col gap-3 overflow-y-auto custom-scrollbar px-3 py-4" aria-label={l('title')}>
       <header className="flex items-start gap-3">
         <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-surface text-text-primary">
           <Blocks size={21} aria-hidden />
