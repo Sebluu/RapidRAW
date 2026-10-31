@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/color-harmonizer
+      - pr/color-harmonizer
   workflow_dispatch:
 
 permissions:
@@ -29,12 +30,12 @@ jobs:
       - run: npm ci
       - name: Color harmony behavior regression tests
         run: node scripts/test-color-harmony.mjs
-      - name: TypeScript errors against unchanged main
+      - name: TypeScript diagnostics vs upstream parent
         run: |
-          git worktree add --detach "$RUNNER_TEMP/rapidraw-main" origin/main
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-main" HEAD^
           ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-main/node_modules"
           node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-main"
-      - name: ESLint regression check
+      - name: ESLint diagnostics vs upstream parent
         if: success() || failure()
         run: node scripts/check-eslint-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-main"
       - name: Frontend production build
@@ -42,7 +43,27 @@ jobs:
         run: npm run build
       - name: Formatting of changed frontend files
         if: success() || failure()
-        run: npx prettier --check src/components/adjustments/HarmonyRulePicker.tsx src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/AdjustmentSection.tsx src/utils/colorHarmony.ts src/utils/adjustments.ts src/utils/defaultAdjustments.json src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/right/MasksPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json scripts/test-color-harmony.mjs
+        run: |
+          npx prettier --check \
+            scripts/check-eslint-regressions.mjs \
+            scripts/check-typecheck-regressions.mjs \
+            scripts/test-color-harmony.mjs \
+            src/components/adjustments/HarmonyRulePicker.tsx \
+            src/components/adjustments/ColorHarmonizer.tsx \
+            src/components/adjustments/AdjustmentSubSection.tsx \
+            src/components/adjustments/Color.tsx \
+            src/components/panel/right/ControlsPanel.tsx \
+            src/components/panel/right/MasksPanel.tsx \
+            src/components/ui/AppProperties.tsx \
+            src/components/ui/Slider.tsx \
+            src/utils/colorHarmony.ts \
+            src/utils/adjustments.ts \
+            src/utils/defaultAdjustments.json \
+            src/store/useUIStore.ts \
+            src/i18n/locales/en.json \
+            src/i18n/locales/de.json \
+            docs/color-harmonizer.md \
+            .github/workflows/color-harmonizer-validation.yml
 
   rust:
     name: Rust format and compile

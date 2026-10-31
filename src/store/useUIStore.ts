@@ -247,6 +247,8 @@ export interface UIState {
   renderedPanel: Panel | null;
   slideDirection: number;
   collapsibleSectionsState: CollapsibleSectionsState;
+  isColorGradingExpanded: boolean;
+  isColorMixerExpanded: boolean;
   cropSectionsState: CropSectionsState;
 
   isCreateFolderModalOpen: boolean;
@@ -337,6 +339,8 @@ export const useUIStore = create<UIState>((set, get) => ({
     details: false,
     effects: false,
   },
+  isColorGradingExpanded: false,
+  isColorMixerExpanded: false,
   cropSectionsState: { transform: false, lens: false },
 
   isCreateFolderModalOpen: false,

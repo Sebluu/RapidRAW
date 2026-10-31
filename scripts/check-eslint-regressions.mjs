@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Compare ESLint errors on the edited UI files against the exact original main.
+/** Compare ESLint errors on the edited UI files against the upstream parent revision.
  *  Existing lint failures remain visible; only *new* issues fail this job.
  */
 import { spawnSync } from 'node:child_process';
@@ -8,12 +8,6 @@ import { existsSync } from 'node:fs';
 
 const [feature, baseline] = process.argv.slice(2);
 const files = [
-  'src/components/panel/Editor.tsx',
-  'src/components/panel/editor/ImageCanvas.tsx',
-  'src/components/adjustments/AdjustmentSubSection.tsx',
-  'src/components/adjustments/Color.tsx',
-  'src/components/adjustments/Curves.tsx',
-  'src/utils/canvasControls.ts',
   'src/components/adjustments/ColorHarmonizer.tsx',
   'src/components/adjustments/HarmonyRulePicker.tsx',
   'src/components/adjustments/AdjustmentSection.tsx',
@@ -22,12 +16,18 @@ const files = [
   'src/components/ui/AppProperties.tsx',
   'src/store/useUIStore.ts',
   'src/components/panel/right/MasksPanel.tsx',
+  'src/components/adjustments/AdjustmentSubSection.tsx',
+  'src/components/adjustments/Color.tsx',
+  'src/components/panel/right/ControlsPanel.tsx',
+  'src/components/ui/Slider.tsx',
 ];
 function inspect(directory) {
   const cmd = path.join(directory, 'node_modules', 'eslint', 'bin', 'eslint.js');
   const existingFiles = files.filter((file) => existsSync(path.join(directory, file)));
   const proc = spawnSync(process.execPath, [cmd, '--format', 'json', ...existingFiles], {
-    cwd: directory, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+    cwd: directory,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
   });
   if (proc.error || (proc.status !== 0 && proc.status !== 1)) {
     throw new Error(`ESLint execution failed: ${proc.error || proc.stderr}`);
@@ -55,5 +55,5 @@ for (const [key, occurrences] of now) {
     console.error(`New ESLint issue (x${diff}): ${key}`);
   }
 }
-console.log(`ESLint: main=${count(old)}, feature=${count(now)}, new=${added}`);
+console.log(`ESLint: baseline=${count(old)}, feature=${count(now)}, new=${added}`);
 if (added > 0) process.exit(1);

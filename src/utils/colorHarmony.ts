@@ -57,14 +57,8 @@ export function moveHarmonyNode(harmony: ColorHarmonySettings, index: number, an
 }
 
 /**
- * The pull falloff is Gaussian in the GPU shader with sigma = width * 180° / count.
- * At this upper bound the weakest-covered (largest gap midpoint) hue still
- * gets roughly 84% influence. Wider values increasingly approach a uniform
- * pull and make the slider appear unresponsive.
- *
- * The limit adapts to the *actual* node layout: evenly spaced palettes need
- * less range, whereas analogous or custom clustered nodes need more.
- * Preserve legacy saved values above this UI limit until the user edits them.
+ * Cap the Gaussian pull width using the largest gap between hue nodes.
+ * This preserves a useful falloff and leaves older saved values untouched.
  */
 export function getHarmonyWidthMax(nodes: number[]): number {
   const sorted = nodes
@@ -83,13 +77,8 @@ export function getHarmonyWidthMax(nodes: number[]): number {
 }
 
 /**
- * Return the strongest distinct hue peaks, not adjacent bins from a single
- * color cloud. The source histogram uses 72 circular OKLCH hue bins (5°).
- * A short circular kernel smooths sampling/quantization noise, then local
- * maxima are ranked by strength with 30° nonmaximum suppression.
- *
- * If an image contains fewer real chromatic peaks than requested, return
- * fewer hues rather than inventing colors that were never detected.
+ * Rank separate peaks in the circular 72-bin source histogram.
+ * A 30° exclusion radius avoids using neighboring bins for multiple nodes.
  */
 export function dominantHarmonyHues(histogram: number[], desiredCount: number): number[] {
   const binCount = 72;

@@ -12,7 +12,7 @@ per-color saturation.
 
 It complements RapidRAW's existing Color Mixer and Color Grading tools:
 instead of correcting one fixed hue band or applying a global tint, it can
-shape the *relationship* between colors in a photograph. The initial state
+shape the _relationship_ between colors in a photograph. The initial state
 is intentionally neutral, so simply opening the adjustment does not change
 an image.
 

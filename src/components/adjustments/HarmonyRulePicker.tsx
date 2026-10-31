@@ -12,13 +12,7 @@ interface Props {
   onChange: (rule: HarmonyRule) => void;
 }
 
-/**
- * Compact, keyboard-accessible palette picker.
- *
- * The Color subsection uses an overflow-hidden height animation. Render the
- * popup in a portal so it cannot be clipped by nested collapsible panels.
- * No global select CSS or WebKit-native styling overrides are needed.
- */
+/** Render the accessible rule picker in a portal to avoid clipping by collapsing panels. */
 export default function HarmonyRulePicker({ ariaLabel, value, options, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [focusedIndex, setFocusedIndex] = useState(0);

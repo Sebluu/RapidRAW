@@ -1732,6 +1732,7 @@ impl Default for GpuMat3 {
     }
 }
 
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
 pub struct KaleidoscopeGpu {
@@ -1898,8 +1899,8 @@ pub struct GlobalAdjustments {
     pub sharpness_threshold: f32,
 
     pub monochrome: MonochromeSettings,
-    pub color_harmony: ColorHarmonyGpu,
     pub kaleidoscope: KaleidoscopeGpu,
+    pub color_harmony: ColorHarmonyGpu,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -3021,8 +3022,8 @@ fn get_global_adjustments_from_json(
             Some(15.0),
         ),
 
-        color_harmony: parse_color_harmony(js_adjustments),
         kaleidoscope: parse_kaleidoscope(js_adjustments),
+        color_harmony: parse_color_harmony(js_adjustments),
         monochrome: if is_monochrome {
             parse_monochrome_settings(
                 js_adjustments,

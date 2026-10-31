@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Compare compiler diagnostics in the feature branch against the exact fork main
- * at CI checkout time. This does not hide pre-existing errors: it reports their
+ * Compare compiler diagnostics in the feature branch against the upstream parent commit
+ * of the feature branch. This does not hide pre-existing errors: it reports their
  * count, and FAILS if the branch adds any diagnostic absent from main.
  *
  * This is temporary until upstream's baseline TypeScript errors are resolved.
@@ -36,7 +36,7 @@ function collect(directory) {
     errors.set(key, (errors.get(key) || 0) + 1);
   }
   if (result.status !== 0 && errors.size === 0) {
-    throw new Error(`TypeScript failed without parseable diagnostics in ${directory}: ${result.stdout.slice(0,1000)}`);
+    throw new Error(`TypeScript failed without parseable diagnostics in ${directory}: ${result.stdout.slice(0, 1000)}`);
   }
   return errors;
 }
@@ -52,5 +52,5 @@ for (const [key, count] of newErrors) {
     console.error(`NEW (x${diff}): ${key}`);
   }
 }
-console.log(`TypeScript: main=${sum(oldErrors)} errors, feature=${sum(newErrors)} errors, new=${regressions}`);
+console.log(`TypeScript: baseline=${sum(oldErrors)} errors, feature=${sum(newErrors)} errors, new=${regressions}`);
 if (regressions > 0) process.exit(1);

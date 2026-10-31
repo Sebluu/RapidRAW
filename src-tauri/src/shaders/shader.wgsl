@@ -46,6 +46,7 @@ struct MonochromeSettings {
     _pad3: f32,
 }
 
+
 struct KaleidoscopeGpu {
     mode: u32,
     axis: u32,
@@ -154,8 +155,8 @@ struct GlobalAdjustments {
     sharpness_threshold: f32,
 
     monochrome: MonochromeSettings,
-    color_harmony: ColorHarmony,
     kaleidoscope: KaleidoscopeGpu,
+    color_harmony: ColorHarmony,
 }
 
 struct MaskAdjustments {
@@ -296,6 +297,7 @@ const GF_NOISE_HI: f32 = 0.01;
 
 override HIGH_PRECISION_OUTPUT: u32 = 0u;
 override FEATURES: u32 = 0xFFFFFFFFu;
+override HSL_PROBE: u32 = 0u;
 
 const F_NOISE_REDUCTION: u32 = 1u;
 const F_HSL: u32 = 2u;
@@ -309,8 +311,8 @@ const F_LUT: u32 = 256u;
 const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
-const F_COLOR_HARMONY: u32 = 4096u;
 const F_KALEIDOSCOPE: u32 = 8192u;
+const F_COLOR_HARMONY: u32 = 4096u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -924,6 +926,15 @@ fn apply_creative_color(color: vec3<f32>, sat: f32, vib: f32) -> vec3<f32> {
     processed = mix(vec3<f32>(luma), processed, final_mult);
 
     return max(processed, vec3<f32>(0.0));
+}
+
+fn hsl_probe(color: vec3<f32>) -> vec4<f32> {
+    let safe_color = max(color, vec3<f32>(0.0));
+    if (distance(safe_color.r, safe_color.g) < 0.001 && distance(safe_color.g, safe_color.b) < 0.001) {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+    let hsv = rgb_to_hsv(linear_to_srgb_extended(safe_color));
+    return vec4<f32>(hsv.x / 360.0, hsv.y, 0.0, 1.0);
 }
 
 fn apply_hsl_panel(color: vec3<f32>, hsl_adjustments: array<HslColor, 8>, coords_i: vec2<i32>) -> vec3<f32> {
@@ -1941,6 +1952,7 @@ fn apply_halation(
     return contrast_reduced + halation_glow * amount * 2.5;
 }
 
+
 // Work in image-space and preserve aspect ratio in every preview resolution.
 fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> vec3<f32> {
     let center = vec2<f32>(k.center_x, k.center_y);
@@ -2275,6 +2287,10 @@ fn main(
         composite_rgb_linear = apply_monochrome_mix(composite_rgb_linear, adjustments.global.monochrome, final_hsl);
     } else {
         composite_rgb_linear = apply_color_calibration(composite_rgb_linear, adjustments.global.color_calibration);
+        if (HSL_PROBE == 1u) {
+            textureStore(output_texture, id.xy, hsl_probe(composite_rgb_linear));
+            return;
+        }
         if (has_feature(F_HSL)) {
             composite_rgb_linear = apply_hsl_panel(composite_rgb_linear, final_hsl, absolute_coord_i);
         }

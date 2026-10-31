@@ -1,0 +1,97 @@
+name: Harmonizer, Curves and Effect Studio — integration
+on:
+  push:
+    branches:
+      - test/harmonizer-and-curves
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: feature-integration-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    name: Combined frontend checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 22
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Color harmony behavior tests
+        run: node scripts/test-color-harmony.mjs
+      - name: TypeScript and ESLint regression checks against upstream
+        run: |
+          # This test merge has the previous test branch as first parent and
+          # the upstream main commit as second parent (HEAD^2).
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-upstream" HEAD^2
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-upstream/node_modules"
+          node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+          node scripts/check-eslint-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+          node scripts/check-eslint-curves-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+      - name: Frontend production build
+        if: success() || failure()
+        run: npm run build
+      - name: Formatting of combined frontend, tests, and docs
+        if: success() || failure()
+        run: |
+          npx prettier --check \
+            src/App.tsx \
+            src/components/panel/PanelSwitcher.tsx \
+            src/components/panel/right/PrismStudioPanel.tsx \
+            src/components/panel/right/studio/KaleidoscopeControls.tsx \
+            src/components/adjustments/ColorHarmonizer.tsx \
+            src/components/adjustments/HarmonyRulePicker.tsx \
+            src/components/adjustments/AdjustmentSubSection.tsx \
+            src/components/adjustments/Color.tsx \
+            src/components/adjustments/Curves.tsx \
+            src/components/panel/Editor.tsx \
+            src/components/panel/editor/ImageCanvas.tsx \
+            src/components/ui/AppProperties.tsx \
+            src/components/ui/Slider.tsx \
+            src/components/panel/right/ControlsPanel.tsx \
+            src/components/panel/right/MasksPanel.tsx \
+            src/store/useEditorStore.ts \
+            src/store/useUIStore.ts \
+            src/utils/adjustments.ts \
+            src/utils/canvasControls.ts \
+            src/utils/colorHarmony.ts \
+            src/utils/effectStudio.ts \
+            src/utils/defaultAdjustments.json \
+            src/i18n/locales/en.json \
+            src/i18n/locales/de.json \
+            scripts/check-eslint-regressions.mjs \
+            scripts/check-eslint-curves-regressions.mjs \
+            scripts/check-typecheck-regressions.mjs \
+            scripts/test-color-harmony.mjs \
+            docs/color-harmonizer.md \
+            docs/targeted-curves.md \
+            docs/prism-studio.md
+  rust:
+    name: Combined Rust format and compilation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libgphoto2-dev patchelf
+      - name: Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Rust compilation
+        if: success() || failure()
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
