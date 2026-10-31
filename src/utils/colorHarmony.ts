@@ -67,7 +67,10 @@ export function moveHarmonyNode(harmony: ColorHarmonySettings, index: number, an
  * Preserve legacy saved values above this UI limit until the user edits them.
  */
 export function getHarmonyWidthMax(nodes: number[]): number {
-  const sorted = nodes.filter(Number.isFinite).map(wrapHue).sort((a, b) => a - b);
+  const sorted = nodes
+    .filter(Number.isFinite)
+    .map(wrapHue)
+    .sort((a, b) => a - b);
   const count = sorted.length;
   if (count <= 1) return 1.7;
 
@@ -95,10 +98,7 @@ export function dominantHarmonyHues(histogram: number[], desiredCount: number): 
   const bins = histogram.map((value) => (Number.isFinite(value) && value > 0 ? value : 0));
   const sample = (index: number) => bins[(index + binCount) % binCount];
   const smoothed = bins.map(
-    (_, i) =>
-      sample(i) * 0.4 +
-      (sample(i - 1) + sample(i + 1)) * 0.25 +
-      (sample(i - 2) + sample(i + 2)) * 0.05,
+    (_, i) => sample(i) * 0.4 + (sample(i - 1) + sample(i + 1)) * 0.25 + (sample(i - 2) + sample(i + 2)) * 0.05,
   );
   const peakStrength = Math.max(...smoothed);
   if (peakStrength <= 0) return [];
