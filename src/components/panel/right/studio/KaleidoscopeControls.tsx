@@ -14,7 +14,7 @@ import {
 type Props = { settings: KaleidoscopeSettings; onChange: (next: KaleidoscopeSettings) => void };
 type NumericKey = Exclude<keyof KaleidoscopeSettings, 'mode' | 'mirrorAxis' | 'edgeColor'>;
 
-const PATTERNS: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'triangle', 'spiral', 'fractal'];
+const PATTERNS: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'geometric', 'spiral', 'fractal'];
 const AXES: MirrorAxis[] = ['horizontal', 'vertical', 'quad', 'diagonal'];
 
 export default function KaleidoscopeControls({ settings, onChange }: Props) {
@@ -65,7 +65,13 @@ export default function KaleidoscopeControls({ settings, onChange }: Props) {
       <div>
         {(settings.mode === 'radial' || settings.mode === 'spiral' || settings.mode === 'fractal') &&
           slider('segments', l('segments'), 2, 32)}
-        {(settings.mode === 'grid' || settings.mode === 'triangle') && slider('grid', l('tiles'), 2, 12)}
+        {settings.mode === 'grid' && slider('grid', l('tiles'), 2, 12)}
+        {settings.mode === 'geometric' && (
+          <>
+            {slider('polygonSides', l('polygonSides'), 3, 12)}
+            {slider('mirrorSize', l('mirrorSize'), 0.25, 8, 0.05)}
+          </>
+        )}
         {settings.mode === 'fractal' && slider('depth', l('depth'), 1, 6)}
         {settings.mode === 'spiral' && slider('twist', l('twist'), -10, 10, 0.25)}
         {slider('rotation', l('rotation'), -180, 180, 1, '°')}

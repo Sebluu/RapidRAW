@@ -1,4 +1,4 @@
-export type KaleidoscopeMode = 'radial' | 'mirror' | 'grid' | 'spiral' | 'fractal' | 'triangle';
+export type KaleidoscopeMode = 'radial' | 'mirror' | 'grid' | 'spiral' | 'fractal' | 'geometric' | 'triangle';
 export type MirrorAxis = 'horizontal' | 'vertical' | 'quad' | 'diagonal';
 
 export interface KaleidoscopeSettings {
@@ -6,6 +6,8 @@ export interface KaleidoscopeSettings {
   mirrorAxis: MirrorAxis;
   segments: number;
   grid: number;
+  polygonSides: number;
+  mirrorSize: number;
   depth: number;
   centerX: number;
   centerY: number;
@@ -34,6 +36,8 @@ export const DEFAULT_KALEIDOSCOPE: KaleidoscopeSettings = {
   mirrorAxis: 'quad',
   segments: 8,
   grid: 4,
+  polygonSides: 3,
+  mirrorSize: 2,
   depth: 3,
   centerX: 50,
   centerY: 50,
@@ -47,17 +51,24 @@ export const DEFAULT_KALEIDOSCOPE: KaleidoscopeSettings = {
 };
 const finite = (value: unknown, fallback: number, low: number, high: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
-const modes: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'spiral', 'fractal', 'triangle'];
+const modes: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'spiral', 'fractal', 'geometric', 'triangle'];
 const axes: MirrorAxis[] = ['horizontal', 'vertical', 'quad', 'diagonal'];
 
 export function normalizeKaleidoscope(input: unknown): KaleidoscopeSettings {
   const s = (input && typeof input === 'object' ? input : {}) as Partial<KaleidoscopeSettings>;
   const d = DEFAULT_KALEIDOSCOPE;
   return {
-    mode: modes.includes(s.mode as KaleidoscopeMode) ? s.mode! : d.mode,
+    mode: s.mode === 'triangle' ? 'geometric' : modes.includes(s.mode as KaleidoscopeMode) ? s.mode! : d.mode,
     mirrorAxis: axes.includes(s.mirrorAxis as MirrorAxis) ? s.mirrorAxis! : d.mirrorAxis,
     segments: Math.round(finite(s.segments, d.segments, 2, 32)),
     grid: Math.round(finite(s.grid, d.grid, 2, 12)),
+    polygonSides: Math.round(finite(s.polygonSides, d.polygonSides, 3, 12)),
+    mirrorSize: finite(
+      s.mirrorSize,
+      s.mode === 'triangle' ? 2 / finite(s.grid, d.grid, 2, 12) : d.mirrorSize,
+      0.25,
+      8,
+    ),
     depth: Math.round(finite(s.depth, d.depth, 1, 6)),
     centerX: finite(s.centerX, d.centerX, 0, 100),
     centerY: finite(s.centerY, d.centerY, 0, 100),

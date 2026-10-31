@@ -20,7 +20,9 @@ targeted curves, including additional GPU data fields.
 - One image-local, nondestructive Kaleidoscope effect; initially **hidden**.
 - Explicit **Create** action, followed by independent **eye visibility** and **Remove**.
 - Pattern modes: Radial, Mirror (horizontal/vertical/four-way/diagonal),
-  mirrored grid, 60-degree triangular mirror tessellation, spiral and bounded recursive Fractal Kaleidoscope.
+  mirrored grid, Geometric Mirrors with 3–12 sides, spiral and bounded recursive Fractal Kaleidoscope.
+- Geometric Mirrors provides sides (3–12) and mirror size (0.25–8), independent of image zoom. Triangles, squares and hexagons can repeat regularly, while other side counts form repeated polygonal rosettes rather than gapless regular-polygon tilings.
+- Saved `triangle` effects migrate to Geometric Mirrors with 3 sides; previous tile density is mapped to the size setting.
 - Controls: segment count, grid density, recursive depth, twist, center X/Y,
   rotation, zoom, segment edge lens softness, edge vignette color and edge width.
 - Frontend `PrismStudioPanel` is code-split with `React.lazy` and loads only when
