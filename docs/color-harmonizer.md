@@ -6,7 +6,7 @@ Status: **development prototype; compilation, color correctness, GPU render, and
 
 ## What it does
 
-The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a collapsible **Color → Color Harmonizer** subsection directly after Color Mixer, disabled by default through the existing eye/visibility control. The same React component and `colorHarmony` settings model are used for global adjustments and individual mask containers. Existing prototype edits with `colorHarmony.enabled` are migrated to the eye control when no explicit visibility flag exists.
+The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a collapsible **Color → Color Harmonizer** subsection directly after Color Mixer, enabled by default through the existing eye/visibility control **but neutral (strength 0, saturation 1)**. The same React component and `colorHarmony` settings model are used for global adjustments and individual mask containers. Existing prototype edits with `colorHarmony.enabled` are migrated to the eye control when no explicit visibility flag exists.
 
 The harmony preset selector uses a keyboard-accessible, portal-rendered popover so its menu stays legible and is not clipped by the nested collapsing panels. The interface has nine palette patterns plus a custom mode:
 
@@ -31,7 +31,7 @@ In Rust, `parse_color_harmony` validates and clamps parameters before writing a 
 
 The WGSL processing function converts linear sRGB to OKLab, derives OKLCH hue/chroma, chooses the nearest harmony node using a Gaussian angular falloff, pulls hue toward that node, attenuates the effect on low-chroma pixels, applies the winning node's independent saturation multiplier, and converts back to linear sRGB. Global adjustments are applied after creative color and before color grading. Mask adjustments blend after global and mask color grading using the mask's existing influence texture.
 
-There is **no full-resolution CPU color-conversion pass**. Only the open panel's hue-distribution preview is calculated by sampling up to roughly 65,000 pixels of the cached, geometry-corrected source preview (72 bins, chroma weighted). This analysis is intentionally decoupled from live GPU grading and is _not_ an exact post-adjustment histogram. It is recomputed on opening another image, not on every drag or slider update.
+There is **no full-resolution CPU color-conversion pass**. Only the open panel's hue-distribution preview is calculated by sampling up to roughly 65,000 pixels of the cached, geometry-corrected source preview (72 bins, chroma weighted). This analysis is intentionally decoupled from live GPU grading and is _not_ an exact post-adjustment histogram. Results are cached per image (48-entry bounded LRU) and only computed when the subsection is open, not on every drag or slider update.
 
 The wheel pointer handler batches adjustment changes with `requestAnimationFrame`. It uses pointer capture for mouse/pen/touch drags and informs the existing interactive-render system via `onDragStateChange`.
 
@@ -53,7 +53,7 @@ darktable's optional **spatial smoothing** is **not implemented** in this first 
 - [ ] `npm run build`; no new TypeScript/ESLint diagnostics relative to main
 - [ ] Check the _runtime_ WGSL validator and 64-byte Rust/WGSL layout; `cargo check` alone does **not** validate shader execution
 - [ ] Test each palette rule at multiple rotations and arbitrary 2/3/4 custom nodes, including hue wraparound at 0/360°
-- [ ] Verify the default disabled + strength-zero state reproduces original pixels
+- [ ] Verify the default **enabled but neutral** state reproduces original pixels
 - [ ] Test global operation and mask-specific operation, opacity/inversion, mask creation, delete, duplication, undo/redo, save/reopen, presets, copy/paste, 8-bit/16-bit export
 - [ ] Test wide-gamut/RAW, AgX, scene/output LUT, saturation boost and gamut clipping, black and neutral pixels
 - [ ] Confirm pointer capture and correct drag on touchscreens and at non-100% UI scaling
@@ -110,3 +110,10 @@ roughly 27 KiB for 48 × 72 JavaScript numbers, plus array and Map overhead, and
 is discarded when RapidRAW restarts. An edited original file at the **same
 path** is not automatically invalidated in this prototype; introduce an
 explicit source revision/mtime key before supporting external file changes.
+
+## Neutral thumbnail stability and cache bounds (October 2026)
+
+- Fresh editors and masks have an **enabled** subsection eye with a neutral pull strength (0) and 1.0× node saturation, consistent with RapidRAW's other tools. Previously saved explicit visibility choices are preserved.
+- Saving only visually neutral harmonizer values or eye state updates sidecar metadata **without regenerating the filmstrip thumbnail**. This avoids surprising brightness/decoding differences between initial embedded previews and processed thumbnails when the actual pixels do not change. The normal thumbnail refresh still runs whenever non-neutral harmonizer settings or any other visible adjustment changes.
+- The source-color distribution uses a **48-image LRU**: a successful hit is moved to most-recent, and insertion evicts the least-recent. The separately tracked in-flight analyses are also capped at 48, with identity-checked completion so an evicted, late-resolving request cannot repopulate the cache unexpectedly. In-flight operations are not forcibly cancelled; their promises still settle for any original callers.
+- This addresses unnecessary thumbnail regeneration rather than altering color-managed rendering. Visual verification across embedded RAW thumbnails, processed RAW previews, masks and exports is still required.
