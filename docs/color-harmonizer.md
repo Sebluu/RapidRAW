@@ -1,166 +1,138 @@
-# Color Harmonizer — RapidRAW experimental feature
+# Color Harmonizer
 
-Branch: `feature/color-harmonizer` (based on **main**; intentionally independent from `feature/targeted-curves`).
+A proposed **Color → Color Harmonizer** adjustment for RapidRAW.
 
-Status: **development prototype; compilation, color correctness, GPU render, and mask interaction must pass before upstream PR**.
+## Why this is useful
 
-## What it does
+A strong photograph often has several recognizable colors that could be made
+more harmonious without flattening every color into the same hue. Color
+Harmonizer lets the photographer choose a palette and gently pull existing
+colors toward it, with explicit control over the amount of attraction and
+per-color saturation.
 
-The Color Harmonizer offers palette-based hue attraction in a perceptual color space. It is a collapsible **Color → Color Harmonizer** subsection directly after Color Mixer, enabled by default through the existing eye/visibility control **but neutral (strength 0, saturation 1)**. The same React component and `colorHarmony` settings model are used for global adjustments and individual mask containers. Existing prototype edits with `colorHarmony.enabled` are migrated to the eye control when no explicit visibility flag exists.
+It complements RapidRAW's existing Color Mixer and Color Grading tools:
+instead of correcting one fixed hue band or applying a global tint, it can
+shape the *relationship* between colors in a photograph. The initial state
+is intentionally neutral, so simply opening the adjustment does not change
+an image.
 
-The harmony preset selector uses a keyboard-accessible, portal-rendered popover so its menu stays legible and is not clipped by the nested collapsing panels. The interface has nine palette patterns plus a custom mode:
+## Workflow
 
-- Monochromatic (1 node)
-- Analogous (3)
-- Analogous + complementary (4)
-- Complementary (2)
-- Split complementary (3)
-- Dyad (2)
-- Triad (3)
-- Tetrad (4)
-- Square (4)
-- Custom (2–4, independent nodes)
+1. Open **Color → Color Harmonizer**. The panel is initially collapsed and
+   its histogram is only calculated when opened.
+2. Choose a harmony: **Monochromatic**, **Analogous**,
+   **Analogous + Complementary**, **Complementary**, **Split Complementary**,
+   **Dyad**, **Triad**, **Tetrad**, **Square**, or **Custom**.
+3. Rotate a linked pattern using the wheel. Select **Custom** to move
+   individual nodes independently; two custom hues are not forced to be
+   complementary. Custom offers two, three or four independent nodes.
+4. Set **Strength**, **Pull Width**, **Neutral Protection**, and optional
+   **per-node Saturation**. Strength defaults to zero; the native sliders
+   support keyboard input and double-click or touch double-tap to reset.
+5. Choose **Match Dominant Hues** to suggest positions from the photo:
+   linked schemes rotate toward the strongest color, whereas Custom places
+   each node at a different dominant hue, strongest first.
 
-Nodes display directly on a private color wheel in the tool; not over the application's global vectorscope. Linked presets rotate as a group. Unlinking to Custom preserves actual node hues, allowing users to drag individual nodes independently, including non-complementary two-node palettes. Strength, pull width, low-chroma protection, and per-node saturation are user-controlled. Preset defaults are intentionally neutral (strength 0; node saturations 100%).
+The source-color histogram is displayed around the wheel. Its bins are
+**not** a live post-adjustment vectorscope: they describe the cached source
+preview. This distinction avoids implying an accuracy that the prototype
+does not currently provide.
 
-## Processing architecture
+### Adaptive Pull Width
 
-The TypeScript panel is reused unchanged in both the global adjustment panel and the mask panel, which supply different `adjustments` and `setAdjustments` props. `ColorHarmonySettings` are serialized with other nondestructive adjustments, and existing undo/redo/history and mask copy/paste machinery should therefore apply.
+Different patterns need different attraction ranges. The slider's maximum
+depends on the largest angular gap between active nodes; evenly spaced
+palettes have a shorter meaningful range, while clustered nodes allow a
+wider pull. The wheel wedges expand throughout the offered range instead
+of visibly stopping while the slider continues. Previously saved width
+values are not silently rewritten.
 
-In Rust, `parse_color_harmony` validates and clamps parameters before writing a fixed-size 64-byte uniform-like block to the GPU adjustment buffer. The WGSL mirror uses the same layout and `F_COLOR_HARMONY` specialization prevents extra shader processing when no active harmonizer can alter pixels.
+### Matching separate dominant hues
 
-The WGSL processing function converts linear sRGB to OKLab, derives OKLCH hue/chroma, chooses the nearest harmony node using a Gaussian angular falloff, pulls hue toward that node, attenuates the effect on low-chroma pixels, applies the winning node's independent saturation multiplier, and converts back to linear sRGB. Global adjustments are applied after creative color and before color grading. Mask adjustments blend after global and mask color grading using the mask's existing influence texture.
+A chroma-weighted 72-bin OKLCH histogram is circularly smoothed and its
+strongest distinct peaks are selected. A 30° separation rule avoids treating
+adjacent shades of the same dominant color as several independent colors.
+In Custom, node 1 uses the strongest detected peak, node 2 the next, and so
+on. Missing peaks leave remaining nodes in place rather than inventing
+colors absent from the picture. **Monochromatic** takes the strongest peak;
+linked multi-node presets preserve their geometric relationships.
 
-There is **no full-resolution CPU color-conversion pass**. Only the open panel's hue-distribution preview is calculated by sampling up to roughly 65,000 pixels of the cached, geometry-corrected source preview (72 bins, chroma weighted). This analysis is intentionally decoupled from live GPU grading and is _not_ an exact post-adjustment histogram. Results are cached per image (48-entry bounded LRU) and only computed when the subsection is open, not on every drag or slider update.
+## Processing and integration
 
-The wheel pointer handler batches adjustment changes with `requestAnimationFrame`. It uses pointer capture for mouse/pen/touch drags and informs the existing interactive-render system via `onDragStateChange`.
+- The React component shares the existing adjustment and mask-panel
+  machinery. Settings are stored in nondestructive adjustment metadata.
+- Rust validates and clamps the settings into a 64-byte `ColorHarmonyGpu`
+  block mirrored by WGSL.
+- The shader works in **OKLab/OKLCH**: convert linear RGB to a perceptual
+  color model, select the nearest harmony node, apply Gaussian angular
+  attraction with chroma-dependent protection, adjust the winning node's
+  saturation, and convert back to linear RGB.
+- The normal effect is neutral when strength is zero and per-node
+  saturation is 100%. The GPU feature flag avoids invoking the harmonizer
+  on the standard processing path when it cannot alter any pixels.
+- The source histogram samples a bounded preview only when the subsection
+  is open. Analysis results are cached per image (48-entry LRU), including
+  in-flight request deduplication. Slider and wheel movements do **not**
+  resample the image.
+- Both global and mask adjustments use the same UI component and settings;
+  native drag-state hooks allow the existing interactive-render path.
 
-## Relationship to darktable
+The first version does **not** add darktable-like spatial smoothing, a live
+stage-correct vectorscope, or automatic best-pattern selection. These are
+possible follow-ups, but should be judged on performance and visual value.
 
-Design, attraction principle, preset set and UI affordances studied from:
+## Inspiration and license notes
 
-- https://github.com/darktable-org/darktable/blob/master/src/iop/colorharmonizer.c
+The general color-harmony concept, palette rules and Gaussian attraction
+principle were informed by darktable's Color Harmonizer:
+
 - https://docs.darktable.org/usermanual/development/en/module-reference/processing-modules/color-harmonizer/
+- https://github.com/darktable-org/darktable/blob/master/src/iop/colorharmonizer.c
 
-darktable's Color Harmonizer operates in **darktable UCS/JCH** and uses an **RYB hue conversion** for predefined harmony templates. RapidRAW currently uses **OKLab/OKLCH**, with template offsets expressed directly in OKLCH angular degrees. The perceptual color coordinates and resulting output cannot be pixel-identical. We do _not_ embed darktable's color-space conversion code or import the GPL-licensed C implementation. The algorithm was written for RapidRAW's GPU pipeline using publicly documented color science and the documented nearest-node Gaussian attraction principle. Preserve this acknowledgement in any upstream PR; review the licenses (darktable GPLv3, RapidRAW AGPLv3) if any direct port is considered.
+This implementation uses **OKLab/OKLCH**, not darktable's UCS/JCH + RYB
+coordinates, so the two tools are not pixel-equivalent. The WGSL color
+processing code was written for RapidRAW's rendering pipeline rather than
+copied from darktable's C implementation. Reviewers should still assess
+provenance, technical correctness and AGPL compatibility before merging.
 
-darktable's optional **spatial smoothing** is **not implemented** in this first version: adding a second full-image GPU processing/blur path without performance measurements would violate the feature's zero-overhead-off requirement. Its neutral default behaviour is covered without that parameter.
+## Testing
 
-## Test and review checklist
+Automated checks on the feature branch:
 
-- [ ] `cargo fmt --manifest-path src-tauri/Cargo.toml -- --check`
-- [ ] `cargo check --locked --manifest-path src-tauri/Cargo.toml`
-- [ ] `npm run build`; no new TypeScript/ESLint diagnostics relative to main
-- [ ] Check the _runtime_ WGSL validator and 64-byte Rust/WGSL layout; `cargo check` alone does **not** validate shader execution
-- [ ] Test each palette rule at multiple rotations and arbitrary 2/3/4 custom nodes, including hue wraparound at 0/360°
-- [ ] Verify the default **enabled but neutral** state reproduces original pixels
-- [ ] Test global operation and mask-specific operation, opacity/inversion, mask creation, delete, duplication, undo/redo, save/reopen, presets, copy/paste, 8-bit/16-bit export
-- [ ] Test wide-gamut/RAW, AgX, scene/output LUT, saturation boost and gamut clipping, black and neutral pixels
-- [ ] Confirm pointer capture and correct drag on touchscreens and at non-100% UI scaling
-- [ ] Performance: high-resolution RAW & multiple masks; verify feature flag eliminates cost when off and identify pixel costs when enabled
-- [ ] Verify histograms correctly sample source preview and handle early open/preview-not-ready
-- [ ] Add translations in other shipped languages before submitting upstream
+- Behavior tests for node-dependent width and independent dominant peaks:
+  **passed** (`node scripts/test-color-harmony.mjs`).
+- Frontend Vite production build: **passed**.
+- TypeScript and ESLint compared with the unchanged fork baseline:
+  **no new diagnostics**.
+- Prettier formatting: **passed**.
+- Rust format and `cargo check --locked`: **passed**.
 
-## Known limitations / follow-ups
+Reference CI: https://github.com/Sebluu/RapidRAW/actions/runs/41216961931
 
-- The internal source histogram is intentionally _not_ a live, pre-harmonizer after-other-edits vectorscope. Accurate stage-correct live scope needs a dedicated measured GPU/analytics pass (not yet implemented).
-- Spatial correction smoothing, optional automatic best-harmony-rule search, and anchor eyedropper are omitted pending correctness/performance review.
-- Tests on actual hardware, manual visual review, and export parity have not yet been completed.
-- The _other branch_'s targeted-curve pipette uses global interaction state and still needs explicit mask scoping; it is **not** implicitly mask-aware simply because the curves component is shared.
+Human review: the UI, palette switching and visual color interactions were
+tested in the Ubuntu development build and found useful. This does **not**
+replace a broader test matrix, particularly shader runtime validation,
+RAW/export color accuracy, multi-mask undo/redo and non-Linux platforms.
 
-## Upstream strategy
+### Suggested maintainer QA
 
-Keep this change independent of targeted curves. Merge or rebase from upstream main after validation, preserve developer-facing test evidence and benchmark numbers, and only then propose it as a PR. Avoid unverified claims such as 'darktable pixel parity' or 'zero performance cost under all conditions'.
+- All presets, 0°/360° wraparound, custom node independence.
+- Dominant-hue sampling on single-color, mixed-color and near-neutral images.
+- Width range versus wheel display, default neutral state, slider resets.
+- RGB and monochrome RAWs, gamut boundaries, dark/neutral pixels.
+- Global and mask edits, save/reload, history/undo, export, performance.
+- Mouse, touch and accessibility; language fallbacks.
 
-## Histogram loading optimization (October 2026)
+Only English and German labels are currently supplied; adding translations
+for other shipped locales would be a welcome follow-up.
 
-The cached-preview hue histogram is now evaluated only while **both** the
-parent Color adjustment section and Color Harmonizer subsection are expanded.
-Opening an image or switching between images when either section is closed
-does not trigger hue sampling or its retry timers. Collapsing either section
-invalidates pending JavaScript results. The GPU operation remains separate
-from the sampling and uses the existing shader specialization; no new
-per-frame histogram work was added.
+## Development and acknowledgments
 
-## Lazy histogram activation (October 2026)
+This feature was developed through an **AI-assisted, user-directed workflow**.
+The photographer proposed the experience, refined its behavior and exercised
+the UI. ChatGPT produced and revised much of the implementation and
+documentation. Maintainer code review, shader-runtime validation and
+broader hardware testing are encouraged.
 
-The Color Harmonizer subsection now starts **collapsed**, independent of
-whether its parent Color section is open. Its actual expanded state is passed
-through the existing shared `AdjustmentSubSection` component, not inferred
-from a separate UI state approximation. The Rust hue-distribution sampling
-runs only after the user explicitly expands the subsection while Color is
-open. This does not affect the per-pixel GPU harmonization path. Expansion
-is intentionally opt-in on each new panel mount to avoid unexpected analysis
-on image selection.
-
-## Per-image analysis cache
-
-Hue distributions are computed once per source image **per running editing session**
-when the Color Harmonizer subsection is first opened. Completed 72-bin
-histograms are stored in a bounded, 48-image, least-recently-used in-memory
-cache keyed by the selected image's path. Reopening the module or returning
-to an image restores the original bins without another Rust sample. Requests
-already running for the same image share a single Promise, including across
-global and mask panels. Unsuccessful requests are never cached, so temporary
-preview-not-ready errors can still be retried. Results from a previously
-selected image cannot overwrite the newly selected image's UI.
-
-The cache contains only derived histogram values (not image pixels), occupies
-roughly 27 KiB for 48 × 72 JavaScript numbers, plus array and Map overhead, and
-is discarded when RapidRAW restarts. An edited original file at the **same
-path** is not automatically invalidated in this prototype; introduce an
-explicit source revision/mtime key before supporting external file changes.
-
-## Neutral thumbnail stability and cache bounds (October 2026)
-
-- Fresh editors and masks have an **enabled** subsection eye with a neutral pull strength (0) and 1.0× node saturation, consistent with RapidRAW's other tools. Previously saved explicit visibility choices are preserved.
-- Saving only visually neutral harmonizer values or eye state updates sidecar metadata **without regenerating the filmstrip thumbnail**. This avoids surprising brightness/decoding differences between initial embedded previews and processed thumbnails when the actual pixels do not change. The normal thumbnail refresh still runs whenever non-neutral harmonizer settings or any other visible adjustment changes.
-- The source-color distribution uses a **48-image LRU**: a successful hit is moved to most-recent, and insertion evicts the least-recent. The separately tracked in-flight analyses are also capped at 48, with identity-checked completion so an evicted, late-resolving request cannot repopulate the cache unexpectedly. In-flight operations are not forcibly cancelled; their promises still settle for any original callers.
-- This addresses unnecessary thumbnail regeneration rather than altering color-managed rendering. Visual verification across embedded RAW thumbnails, processed RAW previews, masks and exports is still required.
-
-## Native slider styling and default visibility (October 2026)
-
-All strength, width, neutral protection and per-node saturation controls now
-use RapidRAW's shared `Slider` component, including numeric inputs, reset,
-keyboard/drag interaction and matching typography. UI percent values are
-converted to shader-compatible 0–1 (or 0–2) values, with width retained in
-its existing units. New images default to enabled with zero strength; legacy
-explicit off states remain off. The `getActiveTools` fallback also handles
-panel contexts where only `activeTools` and `sectionVisibility` are supplied.
-
-## Slider reset interaction (October 2026)
-
-The harmonizer's sliders use RapidRAW's shared native `Slider` and supply explicit
-reset defaults: strength 0%, width 1.00, neutral protection 50%, and each node's
-saturation 100%. Double-clicking the thumb resets the control as in other
-adjustments. The shared Slider also recognizes two quick, stationary touch taps
-on the thumb (within 320 ms / 24 px); touch scrolling and dragging are never
-interpreted as a reset. Native touch-generated double-click events are
-suppressed after a handled tap reset to avoid duplicate adjustment histories.
-
-## Adaptive pull width and independent dominant hues (October 2026)
-
-The former wheel display capped each node's half-sector at 85°, even though
-the `Pull Width` slider continued to 4.0. This made much of the right-hand
-slider range visually inert. The UI now calculates its **useful maximum**
-from the *largest circular gap* between the current nodes, using the shader's
-existing Gaussian `sigma = width × 180° / nodeCount`. Its maximum corresponds
-to roughly 84% falloff weight at the worst-covered gap midpoint, capped at the
-backend's supported 4.0. Regular evenly spaced patterns have a shorter
-range (max 1.7); clustered custom/analogous nodes can go wider. The
-on-wheel sectors no longer cap at 85°, and expand throughout the normal
-slider range. Legacy edits saved with greater width values remain intact
-until explicitly changed, preserving nondestructive editing and exports.
-The underlying shader math and serialized parameters are unchanged.
-
-`Match Dominant Hues` continues to rotate the full scheme in linked modes,
-including monochromatic, using the same smoothed peak estimate. A colorless
-histogram leaves every rule unchanged rather than choosing an arbitrary hue. In **Custom**, the existing single 72-bin OKLCH
-histogram is circularly smoothed and local hue maxima are ranked by mass.
-Non-maximum suppression (30°) prevents several bins of the same color cloud
-occupying multiple nodes. The first node matches the strongest distinct
-peak, second the next, etc. When there are fewer actual chromatic peaks
-than nodes, the remaining positions are preserved instead of fabricating
-unobserved colors. Both features reuse cached histogram data and require
-no additional Rust/GPU calls during interaction. Tests:
-`node scripts/test-color-harmony.mjs`.
+Color Harmonizer is intentionally isolated from the Targeted Curves eyedropper
+and the separate experimental effects branch.
