@@ -47,6 +47,13 @@ jobs:
         if: success() || failure()
         run: npx prettier --check src/components/adjustments/Curves.tsx src/components/panel/editor/ImageCanvas.tsx src/components/panel/Editor.tsx src/store/useEditorStore.ts src/components/ui/AppProperties.tsx docs/targeted-curves.md
 
+      - name: Inspect documentation format patch
+        if: success() || failure()
+        run: |
+          npx prettier --write docs/targeted-curves.md
+          git diff -- docs/targeted-curves.md
+
+
 
   rust:
     name: Rust — format & cargo check
