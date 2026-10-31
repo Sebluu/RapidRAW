@@ -81,3 +81,32 @@ does not trigger hue sampling or its retry timers. Collapsing either section
 invalidates pending JavaScript results. The GPU operation remains separate
 from the sampling and uses the existing shader specialization; no new
 per-frame histogram work was added.
+
+## Lazy histogram activation (October 2026)
+
+The Color Harmonizer subsection now starts **collapsed**, independent of
+whether its parent Color section is open. Its actual expanded state is passed
+through the existing shared `AdjustmentSubSection` component, not inferred
+from a separate UI state approximation. The Rust hue-distribution sampling
+runs only after the user explicitly expands the subsection while Color is
+open. This does not affect the per-pixel GPU harmonization path. Expansion
+is intentionally opt-in on each new panel mount to avoid unexpected analysis
+on image selection.
+
+## Per-image analysis cache
+
+Hue distributions are computed once per source image **per running editing session**
+when the Color Harmonizer subsection is first opened. Completed 72-bin
+histograms are stored in a bounded, 48-image, least-recently-used in-memory
+cache keyed by the selected image's path. Reopening the module or returning
+to an image restores the original bins without another Rust sample. Requests
+already running for the same image share a single Promise, including across
+global and mask panels. Unsuccessful requests are never cached, so temporary
+preview-not-ready errors can still be retried. Results from a previously
+selected image cannot overwrite the newly selected image's UI.
+
+The cache contains only derived histogram values (not image pixels), occupies
+roughly 27 KiB for 48 × 72 JavaScript numbers, plus array and Map overhead, and
+is discarded when RapidRAW restarts. An edited original file at the **same
+path** is not automatically invalidated in this prototype; introduce an
+explicit source revision/mtime key before supporting external file changes.

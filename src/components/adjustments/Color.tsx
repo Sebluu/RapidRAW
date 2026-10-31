@@ -1040,15 +1040,18 @@ function ColorPanel({
       {!showMonochromeMix && !hiddenTools.includes('colorHarmonizer') && (
         <AdjustmentSubSection
           id="colorHarmonizer"
+          initiallyCollapsed
           order={toolOrder.indexOf('colorHarmonizer')}
           title={t('adjustments.colorHarmonizer.title')}
         >
-          <ColorHarmonizer
-            adjustments={adjustments}
-            setAdjustments={setAdjustments}
-            onDragStateChange={onDragStateChange}
-            isOpen={isSectionOpen && !appSettings?.adjustmentLayout?.collapsedTools?.includes('colorHarmonizer')}
-          />
+          {(expanded) => (
+            <ColorHarmonizer
+              adjustments={adjustments}
+              setAdjustments={setAdjustments}
+              onDragStateChange={onDragStateChange}
+              isOpen={isSectionOpen && expanded}
+            />
+          )}
         </AdjustmentSubSection>
       )}
 
