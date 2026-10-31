@@ -160,11 +160,21 @@ export function reconcileWorkspace(
   });
 
   allowedPanels.forEach((panel) => {
-    if (!seenPanels.has(panel)) {
-      const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
-      sanitizedLayout[targetRegion].push(panel);
-      seenPanels.add(panel);
+    if (seenPanels.has(panel)) return;
+    const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
+    const items = sanitizedLayout[targetRegion];
+
+    // Add Prism to existing saved workspaces next to Inpaint instead of
+    // appending it after Presets. Preserve every previously saved tab order.
+    if (panel === Panel.Prism) {
+      const inpaintIndex = items.indexOf(Panel.Ai);
+      const presetsIndex = items.indexOf(Panel.Presets);
+      const insertAt = inpaintIndex >= 0 ? inpaintIndex + 1 : presetsIndex >= 0 ? presetsIndex : items.length;
+      items.splice(insertAt, 0, panel);
+    } else {
+      items.push(panel);
     }
+    seenPanels.add(panel);
   });
 
   const sanitizedActive: Record<PanelRegion, Panel | null> = {
