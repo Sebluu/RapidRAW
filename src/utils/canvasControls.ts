@@ -40,3 +40,13 @@ export const clickZoomTarget = (
 
 export const movedBeyondClick = (start: { x: number; y: number }, x: number, y: number) =>
   Math.abs(x - start.x) > CLICK_SLOP_PX || Math.abs(y - start.y) > CLICK_SLOP_PX;
+
+// A compositor-native cursor is preferable to a React-rendered cursor: it
+// stays responsive even if a large RAW preview is being processed.
+const CURVE_PIPETTE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <path d="M4 28 12 20 14.5 20 22.5 12 20 9.5 12 17.5 12 20 4 28Z" fill="#f8fafc" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+  <path d="M17.5 7.5 21.5 3.5a2 2 0 0 1 2.8 0l4.2 4.2a2 2 0 0 1 0 2.8l-4 4Z" fill="#f8fafc" stroke="#111827" stroke-width="2" stroke-linejoin="round"/>
+  <path d="m12 20 8.5-8.5" fill="none" stroke="#111827" stroke-width="1.8" stroke-linecap="round"/>
+</svg>`;
+
+export const CURVE_PIPETTE_CURSOR = `url("data:image/svg+xml,${encodeURIComponent(CURVE_PIPETTE_SVG)}") 4 28, crosshair`;

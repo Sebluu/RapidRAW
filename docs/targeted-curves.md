@@ -69,3 +69,20 @@ Manual QA: press without moving; drag quickly before the GPU sample returns;
 release outside image; switch photos while sampling; point and parametric modes
 on all four channels; change split boundaries; narrow panel; undo/redo;
 compare RAW and JPEG. The branch CI does not substitute for these checks.
+
+## Eyedropper loupe and pan arbitration (October 2026)
+
+When the global eyedropper is armed, the parent Editor disables all image
+panning and click-to-zoom gestures (including modifier drags). Regular
+navigation is restored immediately when the eyedropper is disabled.
+
+A 32×32 native SVG pipette cursor replaces the square cursor. On hover, a
+110-pixel circular **3.5× magnifier** shows the locally zoomed existing image
+preview, positioned above and to the right of the cursor (or flipped to stay
+onscreen). It is hidden outside the image, during an active press/drag, and
+when another image tool is active. The loupe performs **no GPU readbacks and
+no React state updates per pointer move**; its CSS transforms are updated
+imperatively. Its source is the cached display preview where available, with
+a thumbnail fallback for the WebGPU renderer. This source may not be a
+pixel-identical view of the live, recently graded GPU frame and must be
+visually verified on hardware before an upstream PR.
