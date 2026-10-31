@@ -2743,7 +2743,6 @@ pub async fn move_files(
     Ok(())
 }
 
-
 /** Whether a harmonizer can modify pixel values (independent of its UI state).
  * The setting may have arbitrary hue nodes/width with zero pull strength;
  * the color result is still unchanged when every node has unit saturation.
@@ -2751,11 +2750,12 @@ pub async fn move_files(
 fn neutral_color_harmony(value: &serde_json::Value) -> bool {
     let harmony = &value["colorHarmony"];
     let strength = harmony["strength"].as_f64().unwrap_or(0.0);
-    let neutral_saturation = harmony["nodeSaturation"]
-        .as_array()
-        .is_none_or(|nodes| nodes.iter().all(|node| {
-            node.as_f64().is_some_and(|value| (value - 1.0).abs() < 0.00001)
-        }));
+    let neutral_saturation = harmony["nodeSaturation"].as_array().is_none_or(|nodes| {
+        nodes.iter().all(|node| {
+            node.as_f64()
+                .is_some_and(|value| (value - 1.0).abs() < 0.00001)
+        })
+    });
     strength.abs() < 0.00001 && neutral_saturation
 }
 
@@ -2767,12 +2767,18 @@ fn strip_neutral_harmony_for_thumbnail_comparison(adjustments: &mut serde_json::
         return;
     };
     object.remove("colorHarmony");
-    if let Some(tools) = object.get_mut("activeTools").and_then(|v| v.as_object_mut()) {
+    if let Some(tools) = object
+        .get_mut("activeTools")
+        .and_then(|v| v.as_object_mut())
+    {
         tools.remove("colorHarmonizer");
     }
 }
 
-fn image_adjustments_equal_for_thumbnail(before: &serde_json::Value, after: &serde_json::Value) -> bool {
+fn image_adjustments_equal_for_thumbnail(
+    before: &serde_json::Value,
+    after: &serde_json::Value,
+) -> bool {
     let mut before = before.clone();
     let mut after = after.clone();
 
