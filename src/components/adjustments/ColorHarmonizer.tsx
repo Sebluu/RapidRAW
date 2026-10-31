@@ -3,6 +3,7 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { Link2, Link2Off, RotateCcw, Sparkles, ChevronDown } from 'lucide-react';
 import HarmonyRulePicker from './HarmonyRulePicker';
+import Slider from '../ui/Slider';
 import { useTranslation } from 'react-i18next';
 import type { Adjustments, ColorHarmonySettings, HarmonyRule } from '../../utils/adjustments';
 import { DEFAULT_COLOR_HARMONY } from '../../utils/adjustments';
@@ -90,43 +91,6 @@ function wedge(start: number, end: number, inner: number, outer: number): string
   const [dx, dy] = point(end, inner);
   const largeArc = end - start > 180 ? 1 : 0;
   return `M ${ax} ${ay} L ${bx} ${by} A ${outer} ${outer} 0 ${largeArc} 1 ${cx} ${cy} L ${dx} ${dy} A ${inner} ${inner} 0 ${largeArc} 0 ${ax} ${ay} Z`;
-}
-
-function Range({
-  title,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-  display,
-}: {
-  title: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-  display: string;
-}) {
-  return (
-    <label className="flex flex-col gap-1.5 text-xs">
-      <span className="flex items-center justify-between text-text-secondary">
-        <span>{title}</span>
-        <span className="tabular-nums font-medium text-text-primary">{display}</span>
-      </span>
-      <input
-        aria-label={title}
-        className="w-full accent-accent"
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-      />
-    </label>
-  );
 }
 
 export default function ColorHarmonizer({ adjustments, setAdjustments, onDragStateChange, isOpen = false }: Props) {
@@ -278,7 +242,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const count = harmony.nodes.length;
   return (
     <div className="flex flex-col gap-4 select-none" data-color-harmonizer>
-      <p className="text-[11px] leading-relaxed text-text-secondary">{t('adjustments.colorHarmonizer.description')}</p>
+      <p className="text-sm leading-relaxed text-text-secondary">{t('adjustments.colorHarmonizer.description')}</p>
 
       <div className="grid grid-cols-[1fr_auto] items-center gap-2">
         <HarmonyRulePicker
@@ -412,7 +376,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
             );
           })}
         </svg>
-        <div className="mt-1 flex justify-between gap-1 text-[10px] text-text-secondary">
+        <div className="mt-1 flex justify-between gap-1 text-xs text-text-secondary">
           <span>
             {sampling ? t('adjustments.colorHarmonizer.sampling') : t('adjustments.colorHarmonizer.histogram')}
           </span>
@@ -429,7 +393,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
       </div>
 
       {harmony.rule === 'custom' && (
-        <div className="flex items-center justify-between gap-2 text-xs">
+        <div className="flex items-center justify-between gap-2 text-sm">
           <span className="text-text-secondary">{t('adjustments.colorHarmonizer.nodeCount')}</span>
           <div className="inline-flex rounded-lg bg-surface p-0.5 gap-0.5">
             {[2, 3, 4].map((n) => (
@@ -455,40 +419,45 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
         </div>
       )}
 
-      <div className="flex flex-col gap-3 border-t border-border pt-3">
-        <Range
-          title={t('adjustments.colorHarmonizer.strength')}
-          value={harmony.strength}
+      <div className="flex flex-col border-t border-border pt-3">
+        <Slider
+          label={t('adjustments.colorHarmonizer.strength')}
+          value={Math.round(harmony.strength * 100)}
           min={0}
-          max={1}
-          step={0.01}
-          display={`${Math.round(harmony.strength * 100)}%`}
-          onChange={(strength) => update((v) => ({ ...v, strength }))}
+          max={100}
+          step={1}
+          defaultValue={0}
+          suffix="%"
+          onChange={(event) => update((v) => ({ ...v, strength: Number(event.target.value) / 100 }))}
+          onDragStateChange={onDragStateChange}
         />
-        <Range
-          title={t('adjustments.colorHarmonizer.width')}
+        <Slider
+          label={t('adjustments.colorHarmonizer.width')}
           value={harmony.width}
           min={0.25}
           max={4}
           step={0.05}
-          display={harmony.width.toFixed(2)}
-          onChange={(width) => update((v) => ({ ...v, width }))}
+          defaultValue={1}
+          onChange={(event) => update((v) => ({ ...v, width: Number(event.target.value) }))}
+          onDragStateChange={onDragStateChange}
         />
-        <Range
-          title={t('adjustments.colorHarmonizer.neutral')}
-          value={harmony.neutralProtection}
+        <Slider
+          label={t('adjustments.colorHarmonizer.neutral')}
+          value={Math.round(harmony.neutralProtection * 100)}
           min={0}
-          max={1}
-          step={0.01}
-          display={`${Math.round(harmony.neutralProtection * 100)}%`}
-          onChange={(neutralProtection) => update((v) => ({ ...v, neutralProtection }))}
+          max={100}
+          step={1}
+          defaultValue={50}
+          suffix="%"
+          onChange={(event) => update((v) => ({ ...v, neutralProtection: Number(event.target.value) / 100 }))}
+          onDragStateChange={onDragStateChange}
         />
       </div>
 
       <div className="border-t border-border pt-2">
         <button
           type="button"
-          className="w-full flex items-center justify-between text-xs text-text-secondary py-1"
+          className="w-full flex items-center justify-between text-sm text-text-secondary py-1"
           aria-expanded={showSaturation}
           onClick={() => setShowSaturation((v) => !v)}
         >
@@ -501,17 +470,19 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
               <div key={index} className="flex items-center gap-2">
                 <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: hueColor(hue) }} />
                 <div className="grow">
-                  <Range
-                    title={`${t('adjustments.colorHarmonizer.node')} ${index + 1}`}
+                  <Slider
+                    label={`${t('adjustments.colorHarmonizer.node')} ${index + 1}`}
                     min={0}
-                    max={2}
-                    step={0.01}
-                    value={harmony.nodeSaturation[index] ?? 1}
-                    display={`${Math.round((harmony.nodeSaturation[index] ?? 1) * 100)}%`}
-                    onChange={(saturation) =>
+                    max={200}
+                    step={1}
+                    defaultValue={100}
+                    value={Math.round((harmony.nodeSaturation[index] ?? 1) * 100)}
+                    suffix="%"
+                    onDragStateChange={onDragStateChange}
+                    onChange={(event) =>
                       update((v) => {
                         const nodeSaturation = [...v.nodeSaturation];
-                        nodeSaturation[index] = saturation;
+                        nodeSaturation[index] = Number(event.target.value) / 100;
                         return { ...v, nodeSaturation };
                       })
                     }
@@ -525,7 +496,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
 
       <button
         type="button"
-        className="flex items-center justify-center gap-1.5 self-end rounded-md px-2 py-1 text-xs text-text-secondary hover:text-text-primary"
+        className="flex items-center justify-center gap-1.5 self-end rounded-md px-2 py-1 text-sm text-text-secondary hover:text-text-primary"
         onClick={() =>
           update(() => ({
             ...DEFAULT_COLOR_HARMONY,
