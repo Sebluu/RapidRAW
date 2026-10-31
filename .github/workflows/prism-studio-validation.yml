@@ -26,5 +26,5 @@ jobs:
         run: npm run build
       - name: Formatting (modified files)
         if: success() || failure()
-        run: npx prettier --check src/App.tsx src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/PanelSwitcher.tsx src/components/panel/right/PrismStudioPanel.tsx src/i18n/locales/en.json src/i18n/locales/de.json docs/prism-studio.md
+        run: npx prettier --check src/App.tsx src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/PanelSwitcher.tsx src/components/panel/right/PrismStudioPanel.tsx src/components/panel/right/studio/KaleidoscopeControls.tsx src/components/ui/OptionPicker.tsx src/utils/effectStudio.ts src/i18n/locales/en.json src/i18n/locales/de.json docs/prism-studio.md
 
