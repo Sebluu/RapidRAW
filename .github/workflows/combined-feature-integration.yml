@@ -53,6 +53,7 @@ jobs:
             src/components/panel/editor/ImageCanvas.tsx \
             src/components/ui/AppProperties.tsx \
             src/components/ui/Slider.tsx \
+            src/components/ui/OptionPicker.tsx \
             src/components/panel/right/ControlsPanel.tsx \
             src/components/panel/right/MasksPanel.tsx \
             src/store/useEditorStore.ts \
@@ -71,11 +72,6 @@ jobs:
             docs/color-harmonizer.md \
             docs/targeted-curves.md \
             docs/prism-studio.md
-      - name: Inspect exact formatting changes for Effect Studio components
-        if: success() || failure()
-        run: |
-          npx prettier --write src/components/panel/right/studio/KaleidoscopeControls.tsx src/utils/effectStudio.ts
-          git diff -- src/components/panel/right/studio/KaleidoscopeControls.tsx src/utils/effectStudio.ts
 
   rust:
     name: Combined Rust format and compilation
