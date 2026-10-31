@@ -117,3 +117,13 @@ explicit source revision/mtime key before supporting external file changes.
 - Saving only visually neutral harmonizer values or eye state updates sidecar metadata **without regenerating the filmstrip thumbnail**. This avoids surprising brightness/decoding differences between initial embedded previews and processed thumbnails when the actual pixels do not change. The normal thumbnail refresh still runs whenever non-neutral harmonizer settings or any other visible adjustment changes.
 - The source-color distribution uses a **48-image LRU**: a successful hit is moved to most-recent, and insertion evicts the least-recent. The separately tracked in-flight analyses are also capped at 48, with identity-checked completion so an evicted, late-resolving request cannot repopulate the cache unexpectedly. In-flight operations are not forcibly cancelled; their promises still settle for any original callers.
 - This addresses unnecessary thumbnail regeneration rather than altering color-managed rendering. Visual verification across embedded RAW thumbnails, processed RAW previews, masks and exports is still required.
+
+## Native slider styling and default visibility (October 2026)
+
+All strength, width, neutral protection and per-node saturation controls now
+use RapidRAW's shared `Slider` component, including numeric inputs, reset,
+keyboard/drag interaction and matching typography. UI percent values are
+converted to shader-compatible 0–1 (or 0–2) values, with width retained in
+its existing units. New images default to enabled with zero strength; legacy
+explicit off states remain off. The `getActiveTools` fallback also handles
+panel contexts where only `activeTools` and `sectionVisibility` are supplied.

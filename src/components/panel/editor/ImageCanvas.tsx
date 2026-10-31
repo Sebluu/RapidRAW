@@ -2475,6 +2475,55 @@ const ImageCanvas = memo(
       [imageRenderSize.height, setEditor],
     );
 
+    // Pointer sampling is handled on the existing DOM image surface. Creating a
+    // Konva stage solely for this tool could composite a lower-resolution layer
+    // over the native GPU image, so the picker never mounts its own image canvas.
+    const beginCurvePick = useCallback(
+      (pos: Coord, startY: number) => {
+        if (!curvePickerChannel || !isInsideImage(pos)) return;
+        const uv = mapCanvasPointToUv(pos);
+        const id = ++curveRequest.current;
+        const channel = curvePickerChannel;
+        curveGesture.current = { id, latestY: startY };
+        curveDrag.current = null;
+        setEditor({ isSliderDragging: true });
+        void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
+          imagePath: selectedImage.path,
+          x: uv.x,
+          y: uv.y,
+          channel,
+          jsAdjustments: adjustments,
+        })
+          .then((sample) => {
+            if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
+            const tone =
+              channel === 'luma'
+                ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
+                : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
+            const points = useEditorStore.getState().adjustments.curves[channel];
+            const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
+            const idx = points.findIndex((p) => p.x > tone);
+            const index = idx < 0 ? points.length - 1 : idx;
+            const left = points[Math.max(0, index - 1)],
+              right = points[index];
+            const baseline =
+              nearest?.y ??
+              (right.x > left.x ? left.y + ((right.y - left.y) * (tone - left.x)) / (right.x - left.x) : tone);
+            curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: 0 };
+            publishCurveDrag(curveGesture.current.latestY);
+          })
+          .catch((err) => {
+            if (curveRequest.current === id) {
+              curveGesture.current = null;
+              setEditor({ isSliderDragging: false });
+              console.error('Curve sampling failed:', err);
+            }
+          });
+
+      },
+      [curvePickerChannel, isInsideImage, mapCanvasPointToUv, selectedImage.path, adjustments, setEditor, publishCurveDrag],
+    );
+
     const handleStart = useCallback(
       (e: any) => {
         if (e.evt && typeof e.evt.button === 'number' && e.evt.button !== 0) {
@@ -2483,50 +2532,6 @@ const ImageCanvas = memo(
 
         if (e.evt && e.evt.cancelable) e.evt.preventDefault();
 
-        if (curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal) {
-          const pos = getCanvasPointer(e.target.getStage());
-          if (!isInsideImage(pos)) return;
-          const uv = mapCanvasPointToUv(pos);
-          const id = ++curveRequest.current;
-          const channel = curvePickerChannel;
-          const startY = e.evt?.touches?.[0]?.clientY ?? e.evt?.clientY ?? 0;
-          curveGesture.current = { id, latestY: startY };
-          curveDrag.current = null;
-          setEditor({ isSliderDragging: true });
-          void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
-            imagePath: selectedImage.path,
-            x: uv.x,
-            y: uv.y,
-            channel,
-            jsAdjustments: adjustments,
-          })
-            .then((sample) => {
-              if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
-              const tone =
-                channel === 'luma'
-                  ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
-                  : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
-              const points = useEditorStore.getState().adjustments.curves[channel];
-              const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
-              const idx = points.findIndex((p) => p.x > tone);
-              const index = idx < 0 ? points.length - 1 : idx;
-              const left = points[Math.max(0, index - 1)],
-                right = points[index];
-              const baseline =
-                nearest?.y ??
-                (right.x > left.x ? left.y + ((right.y - left.y) * (tone - left.x)) / (right.x - left.x) : tone);
-              curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: 0 };
-              publishCurveDrag(curveGesture.current.latestY);
-            })
-            .catch((err) => {
-              if (curveRequest.current === id) {
-                curveGesture.current = null;
-                setEditor({ isSliderDragging: false });
-                console.error('Curve sampling failed:', err);
-              }
-            });
-          return;
-        }
         if (isGuidedPerspectiveActive && isCropping) {
           if (e.target === e.target.getStage()) {
             const stage = e.target.getStage();
@@ -3616,7 +3621,9 @@ const ImageCanvas = memo(
 
       const viewportScale = Math.max(0.01, transformScale);
       const diameter = 110;
-      const magnification = 3.5;
+      // Keep the loupe at a constant magnification relative to the visible
+      // image as the editor's zoom slider changes.
+      const magnification = 3.5 * viewportScale;
       const margin = 23 / viewportScale;
       const size = diameter / viewportScale;
       const left = x + margin + size < root.clientWidth ? x + margin : x - margin - size;
@@ -3624,7 +3631,7 @@ const ImageCanvas = memo(
       loupe.style.display = 'block';
       loupe.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${1 / viewportScale})`;
       // Offset for the 3px border: the center marker must coincide with the hotspot.
-      image.style.transform = `translate3d(${diameter / 2 - 3 - imgX * magnification}px, ${diameter / 2 - 3 - imgY * magnification}px, 0)`;
+      image.style.transform = `translate3d(${diameter / 2 - 3 - imgX * magnification}px, ${diameter / 2 - 3 - imgY * magnification}px, 0) scale(${magnification})`;
     };
 
     const hideCurveLoupe = () => {
@@ -3638,7 +3645,20 @@ const ImageCanvas = memo(
         className="relative"
         style={{ width: '100%', height: '100%', cursor: effectiveCursor }}
         onPointerMoveCapture={handleCurveLoupeMove}
-        onPointerDownCapture={hideCurveLoupe}
+        onPointerDownCapture={(e) => {
+          hideCurveLoupe();
+          if (!curvePickerChannel || isCropping || isMasking || isAiEditing || showOriginal || e.button !== 0)
+            return;
+          const root = rootRef.current;
+          if (!root) return;
+          const rect = root.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          const x = ((e.clientX - rect.left) * root.clientWidth) / rect.width - imageRenderSize.offsetX;
+          const y = ((e.clientY - rect.top) * root.clientHeight) / rect.height - imageRenderSize.offsetY;
+          if (!isInsideImage({ x, y })) return;
+          e.preventDefault();
+          beginCurvePick({ x, y }, e.clientY);
+        }}
         onPointerLeave={hideCurveLoupe}
       >
         {curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal && (
@@ -3670,8 +3690,9 @@ const ImageCanvas = memo(
                 position: 'absolute',
                 left: 0,
                 top: 0,
-                width: imageRenderSize.width * 3.5,
-                height: imageRenderSize.height * 3.5,
+                width: imageRenderSize.width,
+                height: imageRenderSize.height,
+                transformOrigin: 'top left',
                 maxWidth: 'none',
                 userSelect: 'none',
               }}
@@ -3860,7 +3881,6 @@ const ImageCanvas = memo(
           {(isMasking ||
             isAiEditing ||
             isWbPickerActive ||
-            curvePickerChannel ||
             showRelightLights ||
             showCenterMarker) &&
             stageWidth > 0 &&

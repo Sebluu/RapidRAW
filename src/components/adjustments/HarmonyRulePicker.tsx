@@ -124,10 +124,10 @@ export default function HarmonyRulePicker({ ariaLabel, value, options, onChange 
         aria-controls={open ? id : undefined}
         onKeyDown={handleKey}
         onClick={() => (open ? setOpen(false) : show())}
-        className="min-w-0 w-full rounded-xl border border-border-color bg-bg-secondary px-3 py-2.5 text-text-primary shadow-sm transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        className="min-w-0 w-full rounded-md border border-border-color bg-bg-secondary px-3 py-2 text-text-primary shadow-sm transition-colors hover:bg-bg-tertiary focus:outline-none focus-visible:ring-2 focus-visible:ring-accent"
       >
         <span className="flex min-w-0 items-center justify-between gap-2">
-          <span className="truncate text-left text-xs font-medium text-text-primary">
+          <span className="truncate text-left text-sm font-medium text-text-primary">
             {options[selectedIndex]?.label}
           </span>
           <ChevronDown
@@ -143,7 +143,7 @@ export default function HarmonyRulePicker({ ariaLabel, value, options, onChange 
             id={id}
             role="listbox"
             aria-label={ariaLabel}
-            className="fixed z-[9999] overflow-y-auto rounded-2xl border border-border-color bg-bg-secondary p-1.5 shadow-2xl"
+            className="fixed z-[9999] overflow-y-auto rounded-lg border border-border-color bg-bg-secondary p-1.5 shadow-2xl"
             style={{ top: bounds.top, left: bounds.left, width: bounds.width, maxHeight: bounds.maxHeight }}
             onKeyDown={handleKey}
           >
@@ -158,7 +158,7 @@ export default function HarmonyRulePicker({ ariaLabel, value, options, onChange 
                 aria-selected={option.value === value}
                 onMouseEnter={() => setFocusedIndex(index)}
                 onClick={() => choose(index)}
-                className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-xs transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
+                className={`flex w-full items-center justify-between gap-2 rounded-md px-3 py-2 text-left text-sm transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-accent ${
                   option.value === value
                     ? 'bg-accent/15 font-semibold text-text-primary'
                     : 'text-text-primary hover:bg-bg-tertiary focus:bg-bg-tertiary'
