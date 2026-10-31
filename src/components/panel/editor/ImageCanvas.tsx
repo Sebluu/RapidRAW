@@ -1485,9 +1485,10 @@ const ImageCanvas = memo(
     const rootRef = useRef<HTMLDivElement>(null);
     const curveLoupeRef = useRef<HTMLDivElement>(null);
     const curveLoupeImageRef = useRef<HTMLImageElement>(null);
+    const curveLoupeCanvasRef = useRef<HTMLCanvasElement>(null);
     const curveRequest = useRef(0);
     const curveSequence = useRef(0);
-    const curveGesture = useRef<{ id: number; latestY: number } | null>(null);
+    const curveGesture = useRef<{ id: number; latestY: number; pointerId: number } | null>(null);
     const curveFrame = useRef<number | null>(null);
     const curvePendingY = useRef<number | null>(null);
     const curveDrag = useRef<{
@@ -2479,12 +2480,12 @@ const ImageCanvas = memo(
     // Konva stage solely for this tool could composite a lower-resolution layer
     // over the native GPU image, so the picker never mounts its own image canvas.
     const beginCurvePick = useCallback(
-      (pos: Coord, startY: number) => {
+      (pos: Coord, startY: number, pointerId: number) => {
         if (!curvePickerChannel || !isInsideImage(pos)) return;
         const uv = mapCanvasPointToUv(pos);
         const id = ++curveRequest.current;
         const channel = curvePickerChannel;
-        curveGesture.current = { id, latestY: startY };
+        curveGesture.current = { id, latestY: startY, pointerId };
         curveDrag.current = null;
         setEditor({ isSliderDragging: true });
         void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
@@ -2812,6 +2813,24 @@ const ImageCanvas = memo(
       ],
     );
 
+    // Share the existing rAF-throttled curve update between the native
+    // pointer-captured surface and optional legacy Konva input.
+    const moveCurvePick = useCallback(
+      (y: number) => {
+        if (!curveGesture.current) return;
+        curveGesture.current.latestY = y;
+        curvePendingY.current = y;
+        if (curveFrame.current === null) {
+          curveFrame.current = requestAnimationFrame(() => {
+            curveFrame.current = null;
+            if (curvePendingY.current !== null) publishCurveDrag(curvePendingY.current);
+            curvePendingY.current = null;
+          });
+        }
+      },
+      [publishCurveDrag],
+    );
+
     const handleMove = useCallback(
       (e: any) => {
         if (isGuidedPerspectiveActive && isCropping && draftGuideLine && isDrawing.current) {
@@ -2838,16 +2857,7 @@ const ImageCanvas = memo(
 
         if (curvePickerChannel && curveGesture.current) {
           const y = e.evt?.touches?.[0]?.clientY ?? e.evt?.clientY ?? e.touches?.[0]?.clientY ?? e.clientY;
-          if (typeof y !== 'number') return;
-          curveGesture.current.latestY = y;
-          curvePendingY.current = y;
-          if (curveFrame.current === null) {
-            curveFrame.current = requestAnimationFrame(() => {
-              curveFrame.current = null;
-              if (curvePendingY.current !== null) publishCurveDrag(curvePendingY.current);
-              curvePendingY.current = null;
-            });
-          }
+          if (typeof y === 'number') moveCurvePick(y);
           return;
         }
         if (isWbPickerActive) {
@@ -3073,6 +3083,7 @@ const ImageCanvas = memo(
         isToolActive,
         isWbPickerActive,
         curvePickerChannel,
+        moveCurvePick,
         setEditor,
         publishCurveDrag,
         isInitialDrawing,
@@ -3384,7 +3395,7 @@ const ImageCanvas = memo(
       if (!isToolActive && !isWbPickerActive && !curvePickerChannel) return;
 
       function onGlobalMove(e: MouseEvent | TouchEvent) {
-        if (!isDrawing.current && !curveGesture.current) return;
+        if (!isDrawing.current) return;
         handleMove(e);
       }
 
@@ -3398,12 +3409,14 @@ const ImageCanvas = memo(
       window.addEventListener('touchmove', onGlobalMove, { passive: false });
       window.addEventListener('touchend', onGlobalUp);
       window.addEventListener('touchcancel', onGlobalUp);
+      window.addEventListener('blur', onGlobalUp);
       return () => {
         window.removeEventListener('mousemove', onGlobalMove);
         window.removeEventListener('mouseup', onGlobalUp);
         window.removeEventListener('touchmove', onGlobalMove);
         window.removeEventListener('touchend', onGlobalUp);
         window.removeEventListener('touchcancel', onGlobalUp);
+        window.removeEventListener('blur', onGlobalUp);
       };
     }, [isToolActive, isWbPickerActive, curvePickerChannel, handleMove, handleUp]);
 
@@ -3597,26 +3610,40 @@ const ImageCanvas = memo(
             ? 0
             : 1;
 
-    // Magnify the *already available* preview. Pointer motion only updates
-    // compositor transforms; there is no React setState, GPU sample or canvas
-    // readback while moving the eyedropper.
+    // Draw only a 104px bitmap inside the loupe. Scaling an entire preview
+    // image as an HTML compositor layer can escape WebKit's circular clip,
+    // visibly softening the native GPU photo on hover.
     const handleCurveLoupeMove = (e: React.PointerEvent<HTMLDivElement>) => {
       const loupe = curveLoupeRef.current;
-      const image = curveLoupeImageRef.current;
+      const preview = curveLoupeImageRef.current;
+      const canvas = curveLoupeCanvasRef.current;
       const root = rootRef.current;
-      if (!loupe || !image || !root) return;
-      if (!curvePickerChannel || curveGesture.current || isCropping || isMasking || isAiEditing || showOriginal) {
+      if (!loupe || !preview || !canvas || !root) return;
+
+      const gesture = curveGesture.current;
+      if (gesture) {
+        loupe.style.display = 'none';
+        if (gesture.pointerId === e.pointerId) moveCurvePick(e.clientY);
+        return;
+      }
+      if (!curvePickerChannel || isCropping || isMasking || isAiEditing || showOriginal) {
         loupe.style.display = 'none';
         return;
       }
 
       const rect = root.getBoundingClientRect();
-      if (!rect.width || !rect.height || !imageRenderSize.width || !imageRenderSize.height) {
+      if (
+        !rect.width ||
+        !rect.height ||
+        !imageRenderSize.width ||
+        !imageRenderSize.height ||
+        !preview.complete ||
+        !preview.naturalWidth ||
+        !preview.naturalHeight
+      ) {
         loupe.style.display = 'none';
         return;
       }
-      // Editor's contentTransform zooms this entire canvas. Convert from
-      // screen pixels to the local coordinate system used by imageRenderSize.
       const x = ((e.clientX - rect.left) * root.clientWidth) / rect.width;
       const y = ((e.clientY - rect.top) * root.clientHeight) / rect.height;
       const imgX = x - imageRenderSize.offsetX;
@@ -3628,17 +3655,54 @@ const ImageCanvas = memo(
 
       const viewportScale = Math.max(0.01, transformScale);
       const diameter = 110;
-      // Keep the loupe at a constant magnification relative to the visible
-      // image as the editor's zoom slider changes.
       const magnification = 3.5 * viewportScale;
       const margin = 23 / viewportScale;
       const size = diameter / viewportScale;
       const left = x + margin + size < root.clientWidth ? x + margin : x - margin - size;
       const top = y - margin - size >= 0 ? y - margin - size : y + margin;
+      const inside = diameter - 6;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const pixelSize = Math.round(inside * dpr);
+      if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
+        canvas.width = pixelSize;
+        canvas.height = pixelSize;
+      }
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) {
+        loupe.style.display = 'none';
+        return;
+      }
+      // Crop the decoded preview to only what is inside the magnifier, with
+      // border and zoom accounted for. This is NOT a GPU image readback.
+      const sx = (imgX / imageRenderSize.width) * preview.naturalWidth;
+      const sy = (imgY / imageRenderSize.height) * preview.naturalHeight;
+      const sw = (inside / magnification / imageRenderSize.width) * preview.naturalWidth;
+      const sh = (inside / magnification / imageRenderSize.height) * preview.naturalHeight;
+      const x0 = sx - sw / 2;
+      const y0 = sy - sh / 2;
+      const srcX = Math.max(0, x0);
+      const srcY = Math.max(0, y0);
+      const srcRight = Math.min(preview.naturalWidth, x0 + sw);
+      const srcBottom = Math.min(preview.naturalHeight, y0 + sh);
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.fillStyle = '#1c1c1c';
+      context.fillRect(0, 0, inside, inside);
+      if (srcRight > srcX && srcBottom > srcY) {
+        context.imageSmoothingEnabled = magnification < 24;
+        context.drawImage(
+          preview,
+          srcX,
+          srcY,
+          srcRight - srcX,
+          srcBottom - srcY,
+          ((srcX - x0) / sw) * inside,
+          ((srcY - y0) / sh) * inside,
+          ((srcRight - srcX) / sw) * inside,
+          ((srcBottom - srcY) / sh) * inside,
+        );
+      }
       loupe.style.display = 'block';
       loupe.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${1 / viewportScale})`;
-      // Offset for the 3px border: the center marker must coincide with the hotspot.
-      image.style.transform = `translate3d(${diameter / 2 - 3 - imgX * magnification}px, ${diameter / 2 - 3 - imgY * magnification}px, 0) scale(${magnification})`;
     };
 
     const hideCurveLoupe = () => {
@@ -3663,10 +3727,37 @@ const ImageCanvas = memo(
           const y = ((e.clientY - rect.top) * root.clientHeight) / rect.height - imageRenderSize.offsetY;
           if (!isInsideImage({ x, y })) return;
           e.preventDefault();
-          beginCurvePick({ x, y }, e.clientY);
+          beginCurvePick({ x, y }, e.clientY, e.pointerId);
+          e.currentTarget.setPointerCapture(e.pointerId);
+        }}
+        onPointerUpCapture={(e) => {
+          const gesture = curveGesture.current;
+          if (!gesture || gesture.pointerId !== e.pointerId) return;
+          gesture.latestY = e.clientY;
+          handleUp();
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onPointerCancelCapture={(e) => {
+          const gesture = curveGesture.current;
+          if (!gesture || gesture.pointerId !== e.pointerId) return;
+          handleUp();
+          if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
+        }}
+        onLostPointerCapture={(e) => {
+          if (curveGesture.current?.pointerId === e.pointerId) handleUp();
         }}
         onPointerLeave={hideCurveLoupe}
       >
+        {curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal && (
+          <img
+            ref={curveLoupeImageRef}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            src={finalPreviewUrl || displayState.base || selectedImage.thumbnailUrl}
+            style={{ display: 'none' }}
+          />
+        )}
         {curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal && (
           <div
             ref={curveLoupeRef}
@@ -3687,21 +3778,12 @@ const ImageCanvas = memo(
               zIndex: 20,
             }}
           >
-            <img
-              ref={curveLoupeImageRef}
-              alt=""
-              draggable={false}
-              src={finalPreviewUrl || displayState.base || selectedImage.thumbnailUrl}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                width: imageRenderSize.width,
-                height: imageRenderSize.height,
-                transformOrigin: 'top left',
-                maxWidth: 'none',
-                userSelect: 'none',
-              }}
+            <canvas
+              ref={curveLoupeCanvasRef}
+              aria-hidden="true"
+              width={208}
+              height={208}
+              style={{ display: 'block', width: 104, height: 104 }}
             />
             <svg className="absolute inset-0 w-full h-full" viewBox="0 0 110 110" aria-hidden="true">
               <circle cx="55" cy="55" r="4.5" fill="none" stroke="black" strokeWidth="3" />

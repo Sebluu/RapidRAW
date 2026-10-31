@@ -107,3 +107,32 @@ preview is scaled with compositor transforms, without per-move image resizing
 or GPU readbacks. Mouse-up outside the photo and async sampling cancellation
 continue to use the existing gesture lifecycle. Check WGPU/CPU, 1:1/high zoom,
 RAW/JPEG, crop and transformed photos on hardware before upstream submission.
+
+## Native pointer capture and isolated loupe painting (October 2026)
+
+The curve picker is a **gesture**, not a latched drag state: left pointer
+down on the image selects a tone; vertical pointer motion updates its curve;
+pointer up or cancel commits and clears the active gesture, even when released
+outside the photo. The existing DOM image surface now captures its pointer
+ID and receives `pointermove`, `pointerup`, `pointercancel` and
+`lostpointercapture` explicitly. An outside-window blur still ends a
+gesture. Curves stays armed for the next selection; clicking another UI
+control disarms it. This fixes a regression introduced when pointer-down
+moved from Konva to the DOM but move/up still depended on legacy listeners.
+
+The loupe no longer mounts a **large, CSS-transformed preview image**.
+WebKitGTK's compositing of an `<img>` scaled across the whole native GPU
+viewport could escape the circular overflow clip and soften the main image
+while simply hovering. The decoded preview is now a display:none source and
+only the precise 104×104 inner-loupe crop is copied to a fixed-size canvas,
+at up to 2× display resolution; the canvas is clipped to the same 110px
+circle. The expensive *engine* image remains untouched. The loupe zoom still
+tracks the editor zoom and retains the existing hotspot alignment. There
+are **no GPU readbacks or Rust invocations on pointer move**. The loupe
+draws a bounded small crop from the cached preview, which may itself have
+lower resolution than the native zoomed image; full GPU-quality magnification
+would require a separate rendering pipeline and is not implied here.
+
+Manual verification required: mouse-down/drag/up, release outside the
+image/window, rapid repeated clicks, move into another adjustment, change
+photo while dragging, 1:1 and high zoom, WGPU/CPU renderer and RAW/JPEG.
