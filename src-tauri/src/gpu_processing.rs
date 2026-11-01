@@ -1141,6 +1141,9 @@ const F_CA: u32 = 512;
 const F_AGX: u32 = 1024;
 const F_MONOCHROME: u32 = 2048;
 const F_KALEIDOSCOPE: u32 = 8192;
+const F_FRACTAL_FEEDBACK: u32 = 16384;
+const F_PRISM_STUDIO: u32 = 32768;
+const F_LOCAL_NORMALIZE: u32 = 65536;
 
 fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
@@ -1189,6 +1192,9 @@ fn shader_features(adjustments: &AllAdjustments) -> u32 {
     set(F_AGX, g.tonemapper_mode == 1);
     set(F_MONOCHROME, g.monochrome.enabled == 1);
     set(F_KALEIDOSCOPE, g.kaleidoscope.mode != 0);
+    set(F_FRACTAL_FEEDBACK, g.feedback.enabled == 1 && g.feedback.amount > 0.0);
+    set(F_PRISM_STUDIO, g.prism.enabled == 1 && g.prism.amount > 0.0);
+    set(F_LOCAL_NORMALIZE, g.local_normalize.enabled == 1 && g.local_normalize.amount > 0.0);
     features
 }
 
