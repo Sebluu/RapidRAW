@@ -2145,7 +2145,7 @@ fn studio_blur(uv: vec2<f32>, dims: vec2<f32>, radius: f32) -> vec3<f32> {
     if (radius <= 0.0) { return studio_fetch(uv, dims); }
     let limit = vec2<i32>(dims) - vec2<i32>(1);
     let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
-    let shift = i32(max(radius, 1.0));
+    let shift = i32(max(radius * min(dims.x, dims.y) / 1080.0, 1.0));
     let original = textureLoad(input_texture, center, 0).rgb;
     let right = textureLoad(input_texture, clamp(center + vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
     let left = textureLoad(input_texture, clamp(center - vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
@@ -2182,7 +2182,7 @@ fn studio_prism(
     let coverage = studio_mask(studio_luma(source), effect.low, effect.high, effect.feather);
     if (coverage * effect.amount < 0.0001) { return source; }
     let direction = vec2<f32>(cos(effect.angle), sin(effect.angle));
-    let offset = direction * effect.separation / dims;
+    let offset = direction * (effect.separation * min(dims.x, dims.y) / 1080.0) / dims;
     var base_uv = uv;
     if (effect.mode == 2u) {
         let relative = uv - vec2<f32>(0.5);
@@ -2206,7 +2206,7 @@ fn studio_local_normalize(
     if (effect.amount < 0.0001) { return source; }
     let limit = vec2<i32>(dims) - vec2<i32>(1);
     let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
-    let radius = i32(effect.radius);
+    let radius = i32(max(effect.radius * min(dims.x, dims.y) / 1080.0, 1.0));
     var mean = 0.0;
     var second = 0.0;
     for (var y = -1; y <= 1; y += 1) {
