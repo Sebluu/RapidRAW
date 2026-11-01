@@ -2282,6 +2282,9 @@ fn main(
     }
     var color_from_texture = source_color.rgb;
     let original_alpha = source_color.a;
+    if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
+        color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
+    }
     let source_uv = (vec2<f32>(absolute_coord) + 0.5) / full_dims;
     if (has_feature(F_LOCAL_NORMALIZE)) {
         color_from_texture = studio_local_normalize(
@@ -2298,10 +2301,6 @@ fn main(
             source_uv, full_dims, color_from_texture, adjustments.global.prism
         );
     }
-    if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
-        color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
-    }
-
     var initial_linear_rgb: vec3<f32>;
     let is_raw = adjustments.global.is_raw_image;
     if (is_raw == 0u) {
