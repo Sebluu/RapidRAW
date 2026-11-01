@@ -74,7 +74,7 @@ fixed pipeline rather than a reorderable multi-pass graph.
   overlay blur. Luminance is evaluated on the source RGB; nonlinear RGB sources
   can produce different threshold behavior from linear RAW sources.
 - **Local Normalize · Experimental** computes a 3×3 neighborhood average and
-  standard deviation using bilinear source samples, adjusting local luma while
+  standard deviation using nine clamped source samples, adjusting local luma while
   retaining RGB ratios. The algorithm is an approximation for experimentation,
   **not a port of G’MIC's `normalize_local`**. Compare its visual effects with
   RapidRAW's existing Clarity and Structure before considering an upstream PR.
