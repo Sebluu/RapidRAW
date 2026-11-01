@@ -2120,9 +2120,9 @@ fn studio_local_normalize(
     mean /= 9.0;
     let sigma = sqrt(max(0.0, second / 9.0 - mean * mean));
     let original = studio_luma(source);
-    let target = clamp(0.5 + (original - mean) * 0.16 / max(sigma, 0.04), 0.0, 1.0);
+    let target_luma = clamp(0.5 + (original - mean) * 0.16 / max(sigma, 0.04), 0.0, 1.0);
     let strength = effect.amount * (1.0 - effect.smoothing * 0.45);
-    let adjusted = mix(original, target, strength);
+    let adjusted = mix(original, target_luma, strength);
     return source * (adjusted / max(original, 0.001));
 }
 
