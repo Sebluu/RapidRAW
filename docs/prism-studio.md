@@ -78,6 +78,7 @@ fixed pipeline rather than a reorderable multi-pass graph.
   retaining RGB ratios. The algorithm is an approximation for experimentation,
   **not a port of G’MIC's `normalize_local`**. Compare its visual effects with
   RapidRAW's existing Clarity and Structure before considering an upstream PR.
+- Pixel-based radii and prism separation scale relative to the shorter image side (1080px reference) to keep preview and export composition comparable.
 - Softness and local normalization deliberately increase texture reads. Test
   interactive performance on high-resolution RAWs and the Intel Iris Xe GPU.
 
