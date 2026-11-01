@@ -82,7 +82,7 @@ fixed pipeline rather than a reorderable multi-pass graph.
 - Softness and local normalization deliberately increase texture reads. Test
   interactive performance on high-resolution RAWs and the Intel Iris Xe GPU.
 
-Current limitations: feedback samples transformed copies of the *original*
+Current limitations: feedback samples transformed copies of the _original_
 input rather than prior rendered output frames, so this is recursively scaled
 echo compositing, not a full multipass feedback graph. Prism does not refract
 each generated feedback echo independently; the two source-based effects are

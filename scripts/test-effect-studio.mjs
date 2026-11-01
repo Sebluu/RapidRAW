@@ -15,11 +15,12 @@ test('new studio effects are independent and hidden by default', () => {
     version: 1,
     effects: types.map(model.createStudioEffect),
   });
-  assert.deepEqual(state.effects.map((effect) => effect.type), types);
+  assert.deepEqual(
+    state.effects.map((effect) => effect.type),
+    types,
+  );
   assert.ok(state.effects.every((effect) => effect.visible === false));
-  const updated = state.effects.map((effect) => (
-    effect.type === 'prism' ? { ...effect, visible: true } : effect
-  ));
+  const updated = state.effects.map((effect) => (effect.type === 'prism' ? { ...effect, visible: true } : effect));
   const next = model.normalizeEffectStudio({ version: 1, effects: updated });
   assert.equal(next.effects.find((effect) => effect.type === 'prism').visible, true);
   assert.equal(next.effects.find((effect) => effect.type === 'fractalFeedback').visible, false);

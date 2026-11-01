@@ -1,5 +1,17 @@
 import { lazy, Suspense, useState } from 'react';
-import { Blocks, ChevronDown, ChevronRight, Eye, EyeOff, GitBranch, Orbit, Plus, Shapes, Trash2, Contrast } from 'lucide-react';
+import {
+  Blocks,
+  ChevronDown,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  GitBranch,
+  Orbit,
+  Plus,
+  Shapes,
+  Trash2,
+  Contrast,
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useEditorStore } from '../../../store/useEditorStore';
 import { useEditorActions } from '../../../hooks/useEditorActions';
@@ -45,13 +57,21 @@ export default function PrismStudioPanel() {
     }));
 
   const toggleVisibility = (type: StudioEffectType) =>
-    change((state) => ({
-      ...state,
-      effects: state.effects.map((effect) => (effect.type === type ? { ...effect, visible: !effect.visible } : effect)),
-    }), `Toggle ${type}`);
+    change(
+      (state) => ({
+        ...state,
+        effects: state.effects.map((effect) =>
+          effect.type === type ? { ...effect, visible: !effect.visible } : effect,
+        ),
+      }),
+      `Toggle ${type}`,
+    );
 
   const removeEffect = (type: StudioEffectType) => {
-    change((state) => ({ ...state, effects: state.effects.filter((effect) => effect.type !== type) }), `Remove ${type}`);
+    change(
+      (state) => ({ ...state, effects: state.effects.filter((effect) => effect.type !== type) }),
+      `Remove ${type}`,
+    );
     setExpanded((state) => ({ ...state, [type]: false }));
   };
 
@@ -74,9 +94,13 @@ export default function PrismStudioPanel() {
           <div key={type} className="rounded-xl border border-border bg-surface/40">
             <div className="flex items-center gap-2 px-3 py-3">
               <Icon size={19} className="shrink-0 text-text-secondary" aria-hidden />
-              <button type="button" className="flex min-w-0 grow items-center gap-2 text-left"
-                disabled={!selectedImage || !effect} aria-expanded={open && !!effect}
-                onClick={() => setExpanded((value) => ({ ...value, [type]: !value[type] }))}>
+              <button
+                type="button"
+                className="flex min-w-0 grow items-center gap-2 text-left"
+                disabled={!selectedImage || !effect}
+                aria-expanded={open && !!effect}
+                onClick={() => setExpanded((value) => ({ ...value, [type]: !value[type] }))}
+              >
                 <span className="min-w-0 grow">
                   <span className="block text-xs font-semibold text-text-primary">{l(type)}</span>
                   <span className="block text-[11px] text-text-secondary">{l(type + 'Desc')}</span>
@@ -85,22 +109,34 @@ export default function PrismStudioPanel() {
               </button>
               {effect ? (
                 <>
-                  <button type="button" aria-label={effect.visible ? l('hide') : l('show')}
+                  <button
+                    type="button"
+                    aria-label={effect.visible ? l('hide') : l('show')}
                     title={effect.visible ? l('hide') : l('show')}
                     className="rounded-md p-1.5 text-text-primary hover:bg-surface"
-                    onClick={() => toggleVisibility(type)}>
+                    onClick={() => toggleVisibility(type)}
+                  >
                     {effect.visible ? <Eye size={18} /> : <EyeOff size={18} />}
                   </button>
-                  <button type="button" aria-label={l('remove')} title={l('remove')}
+                  <button
+                    type="button"
+                    aria-label={l('remove')}
+                    title={l('remove')}
                     className="rounded-md p-1.5 text-text-secondary hover:bg-surface"
-                    onClick={() => removeEffect(type)}>
+                    onClick={() => removeEffect(type)}
+                  >
                     <Trash2 size={16} />
                   </button>
                 </>
               ) : (
-                <button type="button" disabled={!selectedImage} aria-label={l('create')} title={l('create')}
+                <button
+                  type="button"
+                  disabled={!selectedImage}
+                  aria-label={l('create')}
+                  title={l('create')}
                   onClick={() => addEffect(type)}
-                  className="rounded-md p-1.5 text-text-primary hover:bg-surface disabled:opacity-40">
+                  className="rounded-md p-1.5 text-text-primary hover:bg-surface disabled:opacity-40"
+                >
                   <Plus size={20} />
                 </button>
               )}
@@ -108,8 +144,10 @@ export default function PrismStudioPanel() {
             {effect && open && (
               <Suspense fallback={<div className="p-3 text-xs text-text-secondary">{l('loading')}</div>}>
                 {effect.type === 'kaleidoscope' ? (
-                  <KaleidoscopeControls settings={effect.settings}
-                    onChange={(settings) => saveEffect({ ...effect, settings })} />
+                  <KaleidoscopeControls
+                    settings={effect.settings}
+                    onChange={(settings) => saveEffect({ ...effect, settings })}
+                  />
                 ) : (
                   <CreativeEffectControls effect={effect} onChange={saveEffect} />
                 )}

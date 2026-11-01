@@ -42,8 +42,12 @@ export default function CreativeEffectControls({ effect, onChange }: Props) {
   const { t } = useTranslation();
   const setEditor = useEditorStore((state) => state.setEditor);
   const l = (key: string): string => t(`editor.effectStudio.${key}` as 'editor.effectStudio.title');
-  const defaults = effect.type === 'fractalFeedback' ? DEFAULT_FEEDBACK :
-    effect.type === 'prism' ? DEFAULT_PRISM : DEFAULT_LOCAL_NORMALIZE;
+  const defaults =
+    effect.type === 'fractalFeedback'
+      ? DEFAULT_FEEDBACK
+      : effect.type === 'prism'
+        ? DEFAULT_PRISM
+        : DEFAULT_LOCAL_NORMALIZE;
   const numeric = effect.settings as unknown as Record<string, number>;
 
   const update = (key: string, value: number | string) => {
@@ -90,8 +94,13 @@ export default function CreativeEffectControls({ effect, onChange }: Props) {
           />
         </div>
       )}
-      <div>{fields.filter((field) => field.key !== 'refraction' || effect.type !== 'prism' ||
-        effect.settings.mode === 'refraction').map(slider)}</div>
+      <div>
+        {fields
+          .filter(
+            (field) => field.key !== 'refraction' || effect.type !== 'prism' || effect.settings.mode === 'refraction',
+          )
+          .map(slider)}
+      </div>
       {effect.type !== 'localNormalize' && (
         <div className="border-t border-border pt-3">
           <div className="mb-2 text-sm font-semibold text-text-primary">{l('luminanceBlend')}</div>
