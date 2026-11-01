@@ -2100,13 +2100,15 @@ fn studio_local_normalize(
     uv: vec2<f32>, dims: vec2<f32>, source: vec3<f32>, effect: LocalNormalizeGpu
 ) -> vec3<f32> {
     if (effect.amount < 0.0001) { return source; }
-    let dx = vec2<f32>(effect.radius / dims.x, 0.0);
-    let dy = vec2<f32>(0.0, effect.radius / dims.y);
+    let limit = vec2<i32>(dims) - vec2<i32>(1);
+    let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
+    let radius = i32(effect.radius);
     var mean = 0.0;
     var second = 0.0;
     for (var y = -1; y <= 1; y += 1) {
         for (var x = -1; x <= 1; x += 1) {
-            let value = studio_luma(studio_fetch(uv + f32(x) * dx + f32(y) * dy, dims));
+            let position = clamp(center + vec2<i32>(x, y) * radius, vec2<i32>(0), limit);
+            let value = studio_luma(textureLoad(input_texture, position, 0).rgb);
             mean += value;
             second += value * value;
         }
