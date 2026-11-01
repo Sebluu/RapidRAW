@@ -25,8 +25,6 @@ jobs:
       - run: npm ci
       - name: Color harmony behavior tests
         run: node scripts/test-color-harmony.mjs
-      - name: Effect Studio model tests
-        run: node --test scripts/test-effect-studio.mjs
       - name: TypeScript and ESLint regression checks against upstream
         run: |
           # Compare to the upstream commit that this integration is based on.
@@ -46,7 +44,6 @@ jobs:
             src/components/panel/PanelSwitcher.tsx \
             src/components/panel/right/PrismStudioPanel.tsx \
             src/components/panel/right/studio/KaleidoscopeControls.tsx \
-            src/components/panel/right/studio/CreativeEffectControls.tsx \
             src/components/adjustments/ColorHarmonizer.tsx \
             src/components/adjustments/HarmonyRulePicker.tsx \
             src/components/adjustments/AdjustmentSubSection.tsx \
@@ -72,7 +69,6 @@ jobs:
             scripts/check-eslint-curves-regressions.mjs \
             scripts/check-typecheck-regressions.mjs \
             scripts/test-color-harmony.mjs \
-            scripts/test-effect-studio.mjs \
             docs/color-harmonizer.md \
             docs/targeted-curves.md \
             docs/prism-studio.md

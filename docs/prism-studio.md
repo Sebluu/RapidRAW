@@ -54,40 +54,6 @@ targeted curves, including additional GPU data fields.
 - Rust compilation alone does not validate WGSL on every GPU. Confirm behavior in
   the actual editor, especially at high resolution and when exporting.
 
-## Creative effects — experimental v2
-
-Four independent effect types can be created, toggled, edited, removed and saved
-per image. Controls are loaded on demand; the compiled GPU shader skips disabled
-effect branches via specialization flags.
-
-The current render order is **Local Normalize → Fractal Feedback → Prism →
-Kaleidoscope**. All three creative effects sample the source image, and the
-Kaleidoscope remaps the source coordinates before their calculation so the
-effects remain independently visible when Kaleidoscope is disabled. This is a
-fixed pipeline rather than a reorderable multi-pass graph.
-
-- **Fractal Feedback** repeats progressively transformed and rotated samples
-  of the source photo (1–7 echoes, scaling, rotation, opacity and decay).
-- **Prism & Light** offers dispersion and geometric refraction, with adjustable
-  channel separation, direction and strength.
-- Both have an independently editable luminance window, feathering and optional
-  overlay blur. Luminance is evaluated on the source RGB; nonlinear RGB sources
-  can produce different threshold behavior from linear RAW sources.
-- **Local Normalize · Experimental** computes a 3×3 neighborhood average and
-  standard deviation using nine clamped source samples, adjusting local luma while
-  retaining RGB ratios. The algorithm is an approximation for experimentation,
-  **not a port of G’MIC's `normalize_local`**. Compare its visual effects with
-  RapidRAW's existing Clarity and Structure before considering an upstream PR.
-- Pixel-based radii and prism separation scale relative to the shorter image side (1080px reference) to keep preview and export composition comparable.
-- Softness and local normalization deliberately increase texture reads. Test
-  interactive performance on high-resolution RAWs and the Intel Iris Xe GPU.
-
-Current limitations: feedback samples transformed copies of the *original*
-input rather than prior rendered output frames, so this is recursively scaled
-echo compositing, not a full multipass feedback graph. Prism does not refract
-each generated feedback echo independently; the two source-based effects are
-blended in the fixed order above.
-
 ## Validation
 
 1. Run feature-branch frontend build and formatting checks.

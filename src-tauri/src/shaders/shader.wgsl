@@ -67,40 +67,6 @@ struct KaleidoscopeGpu {
     edge_color: vec4<f32>,
 }
 
-struct FractalFeedbackGpu {
-    enabled: u32,
-    iterations: u32,
-    scale: f32,
-    rotation: f32,
-    amount: f32,
-    decay: f32,
-    low: f32,
-    high: f32,
-    feather: f32,
-    blur: f32,
-    _pad0: f32,
-    _pad1: f32,
-}
-struct PrismGpu {
-    enabled: u32,
-    mode: u32,
-    amount: f32,
-    separation: f32,
-    angle: f32,
-    refraction: f32,
-    low: f32,
-    high: f32,
-    feather: f32,
-    blur: f32,
-    _pad0: f32,
-    _pad1: f32,
-}
-struct LocalNormalizeGpu {
-    enabled: u32,
-    amount: f32,
-    radius: f32,
-    smoothing: f32,
-}
 struct GlobalAdjustments {
     exposure: f32,
     brightness: f32,
@@ -191,9 +157,6 @@ struct GlobalAdjustments {
 
     monochrome: MonochromeSettings,
     kaleidoscope: KaleidoscopeGpu,
-    feedback: FractalFeedbackGpu,
-    prism: PrismGpu,
-    local_normalize: LocalNormalizeGpu,
     color_harmony: ColorHarmony,
 }
 
@@ -350,9 +313,6 @@ const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
 const F_KALEIDOSCOPE: u32 = 8192u;
-const F_FRACTAL_FEEDBACK: u32 = 16384u;
-const F_PRISM_STUDIO: u32 = 32768u;
-const F_LOCAL_NORMALIZE: u32 = 65536u;
 const F_COLOR_HARMONY: u32 = 4096u;
 
 fn has_feature(f: u32) -> bool {
@@ -2128,104 +2088,6 @@ fn kaleidoscope_bilinear(uv: vec2<f32>, size: vec2<f32>) -> vec4<f32> {
     );
 }
 
-fn studio_luma(color: vec3<f32>) -> f32 {
-    return dot(max(color, vec3<f32>(0.0)), vec3<f32>(0.2126, 0.7152, 0.0722));
-}
-
-fn studio_mask(luma: f32, low: f32, high: f32, feather: f32) -> f32 {
-    let edge = max(0.001, feather);
-    return smoothstep(low - edge, low, luma) * (1.0 - smoothstep(high, high + edge, luma));
-}
-
-fn studio_fetch(uv: vec2<f32>, dims: vec2<f32>) -> vec3<f32> {
-    return kaleidoscope_bilinear(clamp(uv, vec2<f32>(0.0), vec2<f32>(1.0)), dims).rgb;
-}
-
-fn studio_blur(uv: vec2<f32>, dims: vec2<f32>, radius: f32) -> vec3<f32> {
-    if (radius <= 0.0) { return studio_fetch(uv, dims); }
-    let limit = vec2<i32>(dims) - vec2<i32>(1);
-    let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
-    let shift = i32(max(radius * min(dims.x, dims.y) / 1080.0, 1.0));
-    let original = textureLoad(input_texture, center, 0).rgb;
-    let right = textureLoad(input_texture, clamp(center + vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
-    let left = textureLoad(input_texture, clamp(center - vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
-    let down = textureLoad(input_texture, clamp(center + vec2<i32>(0, shift), vec2<i32>(0), limit), 0).rgb;
-    let up = textureLoad(input_texture, clamp(center - vec2<i32>(0, shift), vec2<i32>(0), limit), 0).rgb;
-    return (original * 4.0 + right + left + down + up) * 0.125;
-}
-
-fn studio_feedback(
-    uv: vec2<f32>, dims: vec2<f32>, source: vec3<f32>, effect: FractalFeedbackGpu
-) -> vec3<f32> {
-    let coverage = studio_mask(studio_luma(source), effect.low, effect.high, effect.feather);
-    if (coverage * effect.amount < 0.0001) { return source; }
-    let ca = cos(effect.rotation);
-    let sa = sin(effect.rotation);
-    var position = uv;
-    var sum = vec3<f32>(0.0);
-    var weight = 1.0;
-    var total = 0.0;
-    for (var i = 0u; i < 7u; i += 1u) {
-        if (i >= effect.iterations) { break; }
-        let p = (position - vec2<f32>(0.5)) * effect.scale;
-        position = vec2<f32>(0.5) + vec2<f32>(ca * p.x - sa * p.y, sa * p.x + ca * p.y);
-        sum += studio_blur(position, dims, effect.blur) * weight;
-        total += weight;
-        weight *= effect.decay;
-    }
-    return mix(source, sum / max(total, 0.0001), effect.amount * coverage);
-}
-
-fn studio_prism(
-    uv: vec2<f32>, dims: vec2<f32>, source: vec3<f32>, effect: PrismGpu
-) -> vec3<f32> {
-    let coverage = studio_mask(studio_luma(source), effect.low, effect.high, effect.feather);
-    if (coverage * effect.amount < 0.0001) { return source; }
-    let direction = vec2<f32>(cos(effect.angle), sin(effect.angle));
-    let offset = direction * (effect.separation * min(dims.x, dims.y) / 1080.0) / dims;
-    var base_uv = uv;
-    if (effect.mode == 2u) {
-        let relative = uv - vec2<f32>(0.5);
-        let dist = length(relative);
-        base_uv += relative * effect.refraction * 0.3 * sin(dist * 25.0);
-    }
-    let red = studio_fetch(base_uv + offset, dims).r;
-    let green = studio_fetch(base_uv, dims).g;
-    let blue = studio_fetch(base_uv - offset, dims).b;
-    var prism_color = vec3<f32>(red, green, blue);
-    if (effect.blur > 0.0) {
-        let blurred = studio_blur(base_uv, dims, effect.blur);
-        prism_color = mix(prism_color, blurred, 0.5);
-    }
-    return mix(source, prism_color, effect.amount * coverage);
-}
-
-fn studio_local_normalize(
-    uv: vec2<f32>, dims: vec2<f32>, source: vec3<f32>, effect: LocalNormalizeGpu
-) -> vec3<f32> {
-    if (effect.amount < 0.0001) { return source; }
-    let limit = vec2<i32>(dims) - vec2<i32>(1);
-    let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
-    let radius = i32(max(effect.radius * min(dims.x, dims.y) / 1080.0, 1.0));
-    var mean = 0.0;
-    var second = 0.0;
-    for (var y = -1; y <= 1; y += 1) {
-        for (var x = -1; x <= 1; x += 1) {
-            let position = clamp(center + vec2<i32>(x, y) * radius, vec2<i32>(0), limit);
-            let value = studio_luma(textureLoad(input_texture, position, 0).rgb);
-            mean += value;
-            second += value * value;
-        }
-    }
-    mean /= 9.0;
-    let sigma = sqrt(max(0.0, second / 9.0 - mean * mean));
-    let original = studio_luma(source);
-    let target = clamp(0.5 + (original - mean) * 0.16 / max(sigma, 0.04), 0.0, 1.0);
-    let strength = effect.amount * (1.0 - effect.smoothing * 0.45);
-    let adjusted = mix(original, target, strength);
-    return source * (adjusted / max(original, 0.001));
-}
-
 @compute @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) id: vec3<u32>,
@@ -2282,31 +2144,16 @@ fn main(
 
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
-    var source_color = textureLoad(input_texture, absolute_coord, 0);
+    var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
+    var original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
     if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
-        source_color = soft_source;
+        color_from_texture = soft_source.rgb;
+        original_alpha = soft_source.a;
     }
-    var color_from_texture = source_color.rgb;
-    let original_alpha = source_color.a;
     if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
         color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
     }
-    let source_uv = (vec2<f32>(absolute_coord) + 0.5) / full_dims;
-    if (has_feature(F_LOCAL_NORMALIZE)) {
-        color_from_texture = studio_local_normalize(
-            source_uv, full_dims, color_from_texture, adjustments.global.local_normalize
-        );
-    }
-    if (has_feature(F_FRACTAL_FEEDBACK)) {
-        color_from_texture = studio_feedback(
-            source_uv, full_dims, color_from_texture, adjustments.global.feedback
-        );
-    }
-    if (has_feature(F_PRISM_STUDIO)) {
-        color_from_texture = studio_prism(
-            source_uv, full_dims, color_from_texture, adjustments.global.prism
-        );
-    }
+
     var initial_linear_rgb: vec3<f32>;
     let is_raw = adjustments.global.is_raw_image;
     if (is_raw == 0u) {
