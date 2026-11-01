@@ -1831,6 +1831,124 @@ fn parse_kaleidoscope(value: &Value) -> KaleidoscopeGpu {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
 #[repr(C)]
+pub struct FractalFeedbackGpu {
+    pub enabled: u32,
+    pub iterations: u32,
+    pub scale: f32,
+    pub rotation: f32,
+    pub amount: f32,
+    pub decay: f32,
+    pub low: f32,
+    pub high: f32,
+    pub feather: f32,
+    pub blur: f32,
+    _pad0: f32,
+    _pad1: f32,
+}
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct PrismGpu {
+    pub enabled: u32,
+    pub mode: u32,
+    pub amount: f32,
+    pub separation: f32,
+    pub angle: f32,
+    pub refraction: f32,
+    pub low: f32,
+    pub high: f32,
+    pub feather: f32,
+    pub blur: f32,
+    _pad0: f32,
+    _pad1: f32,
+}
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
+pub struct LocalNormalizeGpu {
+    pub enabled: u32,
+    pub amount: f32,
+    pub radius: f32,
+    pub smoothing: f32,
+}
+
+
+fn studio_settings<'a>(value: &'a Value, kind: &str) -> Option<&'a Value> {
+    value
+        .get("effectStudio")?
+        .get("effects")?
+        .as_array()?
+        .iter()
+        .find(|item| item.get("type").and_then(Value::as_str) == Some(kind)
+            && item.get("visible").and_then(Value::as_bool) == Some(true))
+        .and_then(|item| item.get("settings"))
+}
+
+fn studio_number(value: &Value, key: &str, default: f32, min: f32, max: f32) -> f32 {
+    value
+        .get(key)
+        .and_then(Value::as_f64)
+        .filter(|number| number.is_finite())
+        .map_or(default, |number| (number as f32).clamp(min, max))
+}
+
+fn studio_range(settings: &Value) -> (f32, f32, f32, f32) {
+    let first = studio_number(settings, "maskLow", 0.0, 0.0, 100.0) / 100.0;
+    let last = studio_number(settings, "maskHigh", 100.0, 0.0, 100.0) / 100.0;
+    (
+        first.min(last),
+        first.max(last),
+        studio_number(settings, "feather", 10.0, 0.0, 100.0) / 300.0,
+        studio_number(settings, "blur", 0.0, 0.0, 30.0),
+    )
+}
+
+fn parse_fractal_feedback(value: &Value) -> FractalFeedbackGpu {
+    let Some(s) = studio_settings(value, "fractalFeedback") else {
+        return FractalFeedbackGpu::default();
+    };
+    let (low, high, feather, blur) = studio_range(s);
+    FractalFeedbackGpu {
+        enabled: 1,
+        iterations: studio_number(s, "iterations", 4.0, 1.0, 7.0) as u32,
+        scale: studio_number(s, "scale", 0.78, 0.4, 0.95),
+        rotation: studio_number(s, "rotation", 12.0, -180.0, 180.0).to_radians(),
+        amount: studio_number(s, "amount", 38.0, 0.0, 100.0) / 100.0,
+        decay: studio_number(s, "decay", 65.0, 0.0, 100.0) / 100.0,
+        low, high, feather, blur,
+        ..FractalFeedbackGpu::default()
+    }
+}
+
+fn parse_prism(value: &Value) -> PrismGpu {
+    let Some(s) = studio_settings(value, "prism") else {
+        return PrismGpu::default();
+    };
+    let (low, high, feather, blur) = studio_range(s);
+    PrismGpu {
+        enabled: 1,
+        mode: if s.get("mode").and_then(Value::as_str) == Some("refraction") { 2 } else { 1 },
+        amount: studio_number(s, "amount", 45.0, 0.0, 100.0) / 100.0,
+        separation: studio_number(s, "separation", 12.0, 0.0, 60.0),
+        angle: studio_number(s, "angle", 0.0, -180.0, 180.0).to_radians(),
+        refraction: studio_number(s, "refraction", 25.0, 0.0, 100.0) / 100.0,
+        low, high, feather, blur,
+        ..PrismGpu::default()
+    }
+}
+
+fn parse_local_normalize(value: &Value) -> LocalNormalizeGpu {
+    let Some(s) = studio_settings(value, "localNormalize") else {
+        return LocalNormalizeGpu::default();
+    };
+    LocalNormalizeGpu {
+        enabled: 1,
+        amount: studio_number(s, "amount", 25.0, 0.0, 100.0) / 100.0,
+        radius: studio_number(s, "radius", 16.0, 2.0, 64.0),
+        smoothing: studio_number(s, "smoothing", 50.0, 0.0, 100.0) / 100.0,
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
+#[repr(C)]
 pub struct GlobalAdjustments {
     pub exposure: f32,
     pub brightness: f32,
@@ -1921,6 +2039,9 @@ pub struct GlobalAdjustments {
 
     pub monochrome: MonochromeSettings,
     pub kaleidoscope: KaleidoscopeGpu,
+    pub feedback: FractalFeedbackGpu,
+    pub prism: PrismGpu,
+    pub local_normalize: LocalNormalizeGpu,
     pub color_harmony: ColorHarmonyGpu,
 }
 
@@ -3044,6 +3165,9 @@ fn get_global_adjustments_from_json(
         ),
 
         kaleidoscope: parse_kaleidoscope(js_adjustments),
+        feedback: parse_fractal_feedback(js_adjustments),
+        prism: parse_prism(js_adjustments),
+        local_normalize: parse_local_normalize(js_adjustments),
         color_harmony: parse_color_harmony(js_adjustments),
         monochrome: if is_monochrome {
             parse_monochrome_settings(
