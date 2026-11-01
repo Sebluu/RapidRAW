@@ -40,20 +40,15 @@ jobs:
   shader:
     name: WGSL parser and validation
     runs-on: ubuntu-24.04
-    timeout-minutes: 35
+    timeout-minutes: 12
     steps:
       - uses: actions/checkout@v5
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
           toolchain: stable
-          components: rustfmt
           rustflags: ''
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config libgphoto2-dev patchelf
+          workspaces: tools/shader-validation
       - name: Validate WGSL with Naga
-        run: cargo test --locked --manifest-path src-tauri/Cargo.toml --test shader_validation -- --nocapture
+        run: cargo run --quiet --manifest-path tools/shader-validation/Cargo.toml

@@ -126,9 +126,6 @@ gtk = "0.18.2"
 webkit2gtk = "=2.0.2"
 tauri-plugin-wayland-nvidia-quirk = "0.1.0"
 
-[dev-dependencies]
-naga = { version = "=29.0.4", features = ["wgsl-in"] }
-
 [build-dependencies]
 tauri-build = { version = "2.6", features = [] }
 sha2 = "0.11"
