@@ -32,6 +32,8 @@ jobs:
       - run: npm ci
       - name: Color harmony behavior tests
         run: node scripts/test-color-harmony.mjs
+      - name: Effect Studio model regression tests
+        run: node --test scripts/test-effect-studio.mjs
       - name: TypeScript and ESLint regression checks against upstream
         run: |
           # Compare to the upstream commit that this integration is based on.
@@ -51,6 +53,7 @@ jobs:
             src/components/panel/PanelSwitcher.tsx \
             src/components/panel/right/PrismStudioPanel.tsx \
             src/components/panel/right/studio/KaleidoscopeControls.tsx \
+            src/components/panel/right/studio/CreativeEffectControls.tsx \
             src/components/adjustments/ColorHarmonizer.tsx \
             src/components/adjustments/HarmonyRulePicker.tsx \
             src/components/adjustments/AdjustmentSubSection.tsx \
@@ -76,6 +79,7 @@ jobs:
             scripts/check-eslint-curves-regressions.mjs \
             scripts/check-typecheck-regressions.mjs \
             scripts/test-color-harmony.mjs \
+            scripts/test-effect-studio.mjs \
             docs/color-harmonizer.md \
             docs/targeted-curves.md \
             docs/prism-studio.md
@@ -103,3 +107,19 @@ jobs:
       - name: Rust compilation
         if: success() || failure()
         run: cargo check --locked --manifest-path src-tauri/Cargo.toml
+
+  shader:
+    name: Combined WGSL parser and validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/shader-validation
+      - name: Validate combined shader with Naga
+        run: cargo run --quiet --manifest-path tools/shader-validation/Cargo.toml
