@@ -81,12 +81,26 @@ export const DEFAULT_KALEIDOSCOPE: KaleidoscopeSettings = {
   edgeWidth: 30,
 };
 export const DEFAULT_FEEDBACK: FractalFeedbackSettings = {
-  iterations: 4, scale: 0.78, rotation: 12, amount: 38, decay: 65,
-  maskLow: 0, maskHigh: 100, feather: 10, blur: 0,
+  iterations: 4,
+  scale: 0.78,
+  rotation: 12,
+  amount: 38,
+  decay: 65,
+  maskLow: 0,
+  maskHigh: 100,
+  feather: 10,
+  blur: 0,
 };
 export const DEFAULT_PRISM: PrismSettings = {
-  mode: 'dispersion', amount: 45, separation: 12, angle: 0, refraction: 25,
-  maskLow: 0, maskHigh: 100, feather: 10, blur: 0,
+  mode: 'dispersion',
+  amount: 45,
+  separation: 12,
+  angle: 0,
+  refraction: 25,
+  maskLow: 0,
+  maskHigh: 100,
+  feather: 10,
+  blur: 0,
 };
 export const DEFAULT_LOCAL_NORMALIZE: LocalNormalizeSettings = { amount: 25, radius: 16, smoothing: 50 };
 const finite = (value: unknown, fallback: number, low: number, high: number) =>
@@ -196,10 +210,14 @@ export function normalizeEffectStudio(input: unknown): EffectStudioState {
 export function createStudioEffect(type: StudioEffectType): StudioEffect {
   const shared = { id: type + '-primary', version: 1 as const, visible: false };
   switch (type) {
-    case 'kaleidoscope': return { ...shared, type, settings: { ...DEFAULT_KALEIDOSCOPE } };
-    case 'fractalFeedback': return { ...shared, type, settings: { ...DEFAULT_FEEDBACK } };
-    case 'prism': return { ...shared, type, settings: { ...DEFAULT_PRISM } };
-    case 'localNormalize': return { ...shared, type, settings: { ...DEFAULT_LOCAL_NORMALIZE } };
+    case 'kaleidoscope':
+      return { ...shared, type, settings: { ...DEFAULT_KALEIDOSCOPE } };
+    case 'fractalFeedback':
+      return { ...shared, type, settings: { ...DEFAULT_FEEDBACK } };
+    case 'prism':
+      return { ...shared, type, settings: { ...DEFAULT_PRISM } };
+    case 'localNormalize':
+      return { ...shared, type, settings: { ...DEFAULT_LOCAL_NORMALIZE } };
   }
 }
 export const createKaleidoscope = () => createStudioEffect('kaleidoscope');
