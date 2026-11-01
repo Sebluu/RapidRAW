@@ -1870,15 +1870,16 @@ pub struct LocalNormalizeGpu {
     pub smoothing: f32,
 }
 
-
 fn studio_settings<'a>(value: &'a Value, kind: &str) -> Option<&'a Value> {
     value
         .get("effectStudio")?
         .get("effects")?
         .as_array()?
         .iter()
-        .find(|item| item.get("type").and_then(Value::as_str) == Some(kind)
-            && item.get("visible").and_then(Value::as_bool) == Some(true))
+        .find(|item| {
+            item.get("type").and_then(Value::as_str) == Some(kind)
+                && item.get("visible").and_then(Value::as_bool) == Some(true)
+        })
         .and_then(|item| item.get("settings"))
 }
 
@@ -1913,7 +1914,10 @@ fn parse_fractal_feedback(value: &Value) -> FractalFeedbackGpu {
         rotation: studio_number(s, "rotation", 12.0, -180.0, 180.0).to_radians(),
         amount: studio_number(s, "amount", 38.0, 0.0, 100.0) / 100.0,
         decay: studio_number(s, "decay", 65.0, 0.0, 100.0) / 100.0,
-        low, high, feather, blur,
+        low,
+        high,
+        feather,
+        blur,
         ..FractalFeedbackGpu::default()
     }
 }
@@ -1925,12 +1929,19 @@ fn parse_prism(value: &Value) -> PrismGpu {
     let (low, high, feather, blur) = studio_range(s);
     PrismGpu {
         enabled: 1,
-        mode: if s.get("mode").and_then(Value::as_str) == Some("refraction") { 2 } else { 1 },
+        mode: if s.get("mode").and_then(Value::as_str) == Some("refraction") {
+            2
+        } else {
+            1
+        },
         amount: studio_number(s, "amount", 45.0, 0.0, 100.0) / 100.0,
         separation: studio_number(s, "separation", 12.0, 0.0, 60.0),
         angle: studio_number(s, "angle", 0.0, -180.0, 180.0).to_radians(),
         refraction: studio_number(s, "refraction", 25.0, 0.0, 100.0) / 100.0,
-        low, high, feather, blur,
+        low,
+        high,
+        feather,
+        blur,
         ..PrismGpu::default()
     }
 }
