@@ -37,6 +37,12 @@ jobs:
         if: success() || failure()
         run: npx prettier --check src/App.tsx src/components/ui/AppProperties.tsx src/store/useUIStore.ts src/components/panel/PanelSwitcher.tsx src/components/panel/right/PrismStudioPanel.tsx src/components/panel/right/studio/KaleidoscopeControls.tsx src/components/panel/right/studio/CreativeEffectControls.tsx src/components/ui/OptionPicker.tsx src/utils/effectStudio.ts scripts/test-effect-studio.mjs src/i18n/locales/en.json src/i18n/locales/de.json docs/prism-studio.md
 
+      - name: Diagnose formatting differences
+        if: failure()
+        run: |
+          npx prettier --write src/components/panel/right/PrismStudioPanel.tsx src/components/panel/right/studio/CreativeEffectControls.tsx scripts/test-effect-studio.mjs docs/prism-studio.md
+          git --no-pager diff -- src/components/panel/right/PrismStudioPanel.tsx src/components/panel/right/studio/CreativeEffectControls.tsx scripts/test-effect-studio.mjs docs/prism-studio.md
+
   shader:
     name: WGSL parser and validation
     runs-on: ubuntu-24.04
