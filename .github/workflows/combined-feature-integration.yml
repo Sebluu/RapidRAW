@@ -44,6 +44,7 @@ jobs:
             src/components/panel/PanelSwitcher.tsx \
             src/components/panel/right/PrismStudioPanel.tsx \
             src/components/panel/right/studio/KaleidoscopeControls.tsx \
+            src/components/panel/right/studio/CreativeEffectControls.tsx \
             src/components/adjustments/ColorHarmonizer.tsx \
             src/components/adjustments/HarmonyRulePicker.tsx \
             src/components/adjustments/AdjustmentSubSection.tsx \
