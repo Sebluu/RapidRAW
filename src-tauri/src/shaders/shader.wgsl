@@ -2142,12 +2142,16 @@ fn studio_fetch(uv: vec2<f32>, dims: vec2<f32>) -> vec3<f32> {
 }
 
 fn studio_blur(uv: vec2<f32>, dims: vec2<f32>, radius: f32) -> vec3<f32> {
-    let center = studio_fetch(uv, dims);
-    if (radius <= 0.0) { return center; }
-    let dx = vec2<f32>(radius / dims.x, 0.0);
-    let dy = vec2<f32>(0.0, radius / dims.y);
-    return (center * 4.0 + studio_fetch(uv + dx, dims) + studio_fetch(uv - dx, dims)
-        + studio_fetch(uv + dy, dims) + studio_fetch(uv - dy, dims)) * 0.125;
+    if (radius <= 0.0) { return studio_fetch(uv, dims); }
+    let limit = vec2<i32>(dims) - vec2<i32>(1);
+    let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
+    let shift = i32(max(radius, 1.0));
+    let original = textureLoad(input_texture, center, 0).rgb;
+    let right = textureLoad(input_texture, clamp(center + vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
+    let left = textureLoad(input_texture, clamp(center - vec2<i32>(shift, 0), vec2<i32>(0), limit), 0).rgb;
+    let down = textureLoad(input_texture, clamp(center + vec2<i32>(0, shift), vec2<i32>(0), limit), 0).rgb;
+    let up = textureLoad(input_texture, clamp(center - vec2<i32>(0, shift), vec2<i32>(0), limit), 0).rgb;
+    return (original * 4.0 + right + left + down + up) * 0.125;
 }
 
 fn studio_feedback(
