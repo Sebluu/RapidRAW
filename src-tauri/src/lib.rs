@@ -809,7 +809,11 @@ fn process_preview_job(
 
     let preview = match cached_preview_lock
         .as_ref()
-        .filter(|c| c.transform_hash == new_transform_hash && c.preview_dim == preview_dim)
+        .filter(|c| {
+            c.source_path == loaded_image.path
+                && c.transform_hash == new_transform_hash
+                && c.preview_dim == preview_dim
+        })
     {
         Some(cached) => cached.preview.clone(),
         None => {
@@ -829,6 +833,7 @@ fn process_preview_job(
                 preview_dim,
             )?;
             *cached_preview_lock = Some(CachedPreview {
+                source_path: loaded_image.path.clone(),
                 preview: preview.clone(),
                 transform_hash: new_transform_hash,
                 preview_dim,
@@ -2897,6 +2902,7 @@ pub fn run() {
             edit_in::cancel_edit_in_app,
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
+            image_processing::sample_color_harmony_histogram,
             auto_straighten::calculate_auto_straighten,
             file_management::apply_auto_straighten_to_paths,
             mask_generation::generate_mask_overlay,

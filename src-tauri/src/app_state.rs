@@ -192,6 +192,8 @@ impl PreviewSource {
 
 #[derive(Clone)]
 pub struct CachedPreview {
+    // Include the image identity: two files may have identical geometry.
+    pub source_path: String,
     pub preview: PreviewSource,
     pub transform_hash: u64,
     pub preview_dim: u32,
