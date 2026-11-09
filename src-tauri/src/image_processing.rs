@@ -4549,7 +4549,7 @@ pub fn sample_color_harmony_histogram(
     if preview.source_path != image_path {
         return Err("Preview for requested image is not ready yet".into());
     }
-    let image = preview.image;
+    let image = preview.preview.image;
     let (width, height) = image.dimensions();
     if width == 0 || height == 0 {
         return Err("Empty preview".into());
