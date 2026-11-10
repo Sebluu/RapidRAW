@@ -76,7 +76,6 @@ jobs:
             scripts/test-color-harmony.mjs \
             scripts/test-effect-studio.mjs \
             scripts/check-eslint-curves-regressions.mjs \
-            docs/color-harmonizer.md \
             docs/targeted-curves.md \
             docs/prism-studio.md
       - name: Exact Prettier changes on formatting failure

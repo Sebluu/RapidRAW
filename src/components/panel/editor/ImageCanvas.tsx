@@ -2598,7 +2598,11 @@ const ImageCanvas = memo(
         const drag = curveDrag.current;
         if (!gesture || !drag || drag.gestureId !== gesture.id) return;
         const delta = Math.max(-255, Math.min(255, ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
-        if (Number.isFinite(drag.lastDelta) && ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5)) return;
+        if (
+          Number.isFinite(drag.lastDelta) &&
+          ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5)
+        )
+          return;
         drag.lastDelta = delta;
         setEditor({
           curvePick: {
@@ -3842,7 +3846,6 @@ const ImageCanvas = memo(
       if (curveLoupeRef.current) curveLoupeRef.current.style.display = 'none';
     };
 
-
     const finishCurvePointer = (event: React.PointerEvent<HTMLDivElement>) => {
       const gesture = curveGesture.current;
       if (!gesture || gesture.pointerId !== event.pointerId) return;
@@ -3857,7 +3860,8 @@ const ImageCanvas = memo(
         curveDrag.current = null;
       }
       setEditor({ isSliderDragging: false });
-      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      if (event.currentTarget.hasPointerCapture(event.pointerId))
+        event.currentTarget.releasePointerCapture(event.pointerId);
     };
     return (
       <div ref={rootRef} className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>

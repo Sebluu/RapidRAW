@@ -481,7 +481,6 @@
       },
       "title": "Adjustments",
       "tooltips": {
-        "prism": "Effect Studio",
         "autoAdjust": "Auto Adjust Image",
         "hideFromPanel": "Hide from Panel",
         "resetAdjustments": "Reset Adjustments",
@@ -1047,6 +1046,7 @@
         "inpaint": "Inpaint",
         "masks": "Masks",
         "presets": "Presets",
+        "prism": "Effect Studio",
         "tethering": "Tethering"
       }
     },

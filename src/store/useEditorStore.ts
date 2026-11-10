@@ -136,8 +136,6 @@ type CanvasToolState = Pick<
 
 export const canvasToolState = (activeTool: Partial<CanvasToolState> = {}): CanvasToolState => ({
   isWbPickerActive: false,
-  curvePickerChannel: null,
-  curvePick: null,
   isRelightPickerActive: false,
   activeCenterMarker: null,
   mixerPickerProperty: null,
@@ -184,6 +182,8 @@ export const useEditorStore = create<EditorState>((set) => ({
   isStraightenActive: false,
   isAutoStraightening: false,
   isWbPickerActive: false,
+  curvePickerChannel: null,
+  curvePick: null,
   isRelightPickerActive: false,
   activeRelightLightId: null,
   activeCenterMarker: null,

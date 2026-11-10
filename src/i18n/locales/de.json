@@ -481,7 +481,6 @@
       },
       "title": "Anpassungen",
       "tooltips": {
-        "prism": "Effektstudio",
         "autoAdjust": "Bild autom. anpassen",
         "hideFromPanel": "Im Panel ausblenden",
         "resetAdjustments": "Anpassungen zurücksetzen",
@@ -1047,6 +1046,7 @@
         "inpaint": "Reparieren",
         "masks": "Masken",
         "presets": "Vorgaben",
+        "prism": "Effektstudio",
         "tethering": "Tethering"
       }
     },
