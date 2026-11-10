@@ -80,6 +80,15 @@ interface EditorState {
   isStraightenActive: boolean;
   isAutoStraightening: boolean;
   isWbPickerActive: boolean;
+  curvePickerChannel: 'luma' | 'red' | 'green' | 'blue' | null;
+  curvePick: {
+    channel: 'luma' | 'red' | 'green' | 'blue';
+    tone: number;
+    baseline: number;
+    delta: number;
+    sequence: number;
+    gestureId: number;
+  } | null;
   isRelightPickerActive: boolean;
   activeRelightLightId: string | null;
   activeCenterMarker: CenterMarker | null;
@@ -127,6 +136,8 @@ type CanvasToolState = Pick<
 
 export const canvasToolState = (activeTool: Partial<CanvasToolState> = {}): CanvasToolState => ({
   isWbPickerActive: false,
+  curvePickerChannel: null,
+  curvePick: null,
   isRelightPickerActive: false,
   activeCenterMarker: null,
   mixerPickerProperty: null,
