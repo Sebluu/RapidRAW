@@ -35,6 +35,7 @@ import CloneSourceOverlay from './overlays/CloneSourceOverlay';
 import { countPatchesOfType, createSubMask, getStrokeCenter } from '../../../utils/maskUtils';
 import { calculateStraightenAngle, resolveAspectRatio } from '../../../utils/cropUtils';
 import { toast } from 'react-toastify';
+import { CURVE_PIPETTE_CURSOR } from '../../../utils/canvasControls';
 import {
   getWhiteBalanceMode,
   toRelativeWhiteBalance,
@@ -1444,6 +1445,25 @@ const ImageCanvas = memo(
     subscribeViewTransform,
   }: ImageCanvasProps) => {
     const interactivePatch = useEditorStore((state) => state.interactivePatch);
+    const curvePickerChannel = useEditorStore((state) => state.curvePickerChannel);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const curveLoupeRef = useRef<HTMLDivElement>(null);
+    const curveLoupeImageRef = useRef<HTMLImageElement>(null);
+    const curveLoupeCanvasRef = useRef<HTMLCanvasElement>(null);
+    const curveRequest = useRef(0);
+    const curveSequence = useRef(0);
+    const curveGesture = useRef<{ id: number; latestY: number; pointerId: number; released?: boolean } | null>(null);
+    const curveFrame = useRef<number | null>(null);
+    const curvePendingY = useRef<number | null>(null);
+    const curveDrag = useRef<{
+      channel: 'luma' | 'red' | 'green' | 'blue';
+      tone: number;
+      startY: number;
+      baseline: number;
+      gestureId: number;
+      lastDelta: number;
+    } | null>(null);
+
     const isGuidedPerspectiveActive = useEditorStore((state) => state.isGuidedPerspectiveActive);
     const isRelightPickerActive = useEditorStore((state) => state.isRelightPickerActive);
     const activeRelightLightId = useEditorStore((state) => state.activeRelightLightId);
@@ -2562,6 +2582,97 @@ const ImageCanvas = memo(
       resetWbSample();
     }, [isWbPickerActive, selectedImage.path, resetWbSample]);
 
+    useEffect(() => {
+      const wasDragging = curveGesture.current !== null;
+      curveRequest.current++;
+      curveDrag.current = null;
+      curveGesture.current = null;
+      if (wasDragging) setEditor({ isSliderDragging: false });
+      if (curveFrame.current !== null) cancelAnimationFrame(curveFrame.current);
+      curveFrame.current = null;
+    }, [curvePickerChannel, selectedImage.path, setEditor]);
+
+    const publishCurveDrag = useCallback(
+      (y: number) => {
+        const gesture = curveGesture.current;
+        const drag = curveDrag.current;
+        if (!gesture || !drag || drag.gestureId !== gesture.id) return;
+        const delta = Math.max(-255, Math.min(255, ((drag.startY - y) * 255) / Math.max(1, imageRenderSize.height)));
+        if (Number.isFinite(drag.lastDelta) && ((Math.abs(delta) < 1 && drag.lastDelta === 0) || Math.abs(delta - drag.lastDelta) < 0.5)) return;
+        drag.lastDelta = delta;
+        setEditor({
+          curvePick: {
+            channel: drag.channel,
+            tone: drag.tone,
+            baseline: drag.baseline,
+            delta,
+            gestureId: gesture.id,
+            sequence: ++curveSequence.current,
+          },
+        });
+      },
+      [imageRenderSize.height, setEditor],
+    );
+
+    // Sample on the existing DOM surface; another Konva stage could cover the GPU image.
+    const beginCurvePick = useCallback(
+      (pos: Coord, startY: number, pointerId: number) => {
+        if (!curvePickerChannel || !isInsideImage(pos)) return;
+        const uv = mapCanvasPointToUv(pos);
+        const id = ++curveRequest.current;
+        const channel = curvePickerChannel;
+        curveGesture.current = { id, latestY: startY, pointerId };
+        curveDrag.current = null;
+        setEditor({ isSliderDragging: true });
+        void invoke<{ r: number; g: number; b: number }>(Invokes.SampleCurveTone, {
+          imagePath: selectedImage.path,
+          x: uv.x,
+          y: uv.y,
+          channel,
+          jsAdjustments: adjustments,
+        })
+          .then((sample) => {
+            if (curveGesture.current?.id !== id || curveRequest.current !== id) return;
+            const tone =
+              channel === 'luma'
+                ? 0.2126 * sample.r + 0.7152 * sample.g + 0.0722 * sample.b
+                : sample[channel === 'red' ? 'r' : channel === 'green' ? 'g' : 'b'];
+            const points = useEditorStore.getState().adjustments.curves[channel];
+            const nearest = points.find((p) => Math.abs(p.x - tone) < 1);
+            const idx = points.findIndex((p) => p.x > tone);
+            const index = idx < 0 ? points.length - 1 : idx;
+            const left = points[Math.max(0, index - 1)],
+              right = points[index];
+            const baseline =
+              nearest?.y ??
+              (right.x > left.x ? left.y + ((right.y - left.y) * (tone - left.x)) / (right.x - left.x) : tone);
+            curveDrag.current = { channel, tone, startY, baseline, gestureId: id, lastDelta: Number.NaN };
+            const activeGesture = curveGesture.current;
+            publishCurveDrag(activeGesture.latestY);
+            if (activeGesture.released) {
+              curveGesture.current = null;
+              curveDrag.current = null;
+            }
+          })
+          .catch((err) => {
+            if (curveRequest.current === id) {
+              curveGesture.current = null;
+              setEditor({ isSliderDragging: false });
+              console.error('Curve sampling failed:', err);
+            }
+          });
+      },
+      [
+        curvePickerChannel,
+        isInsideImage,
+        mapCanvasPointToUv,
+        selectedImage.path,
+        adjustments,
+        setEditor,
+        publishCurveDrag,
+      ],
+    );
+
     const handleStart = useCallback(
       (e: any) => {
         if (e.evt && typeof e.evt.button === 'number' && e.evt.button !== 0) {
@@ -2830,6 +2941,23 @@ const ImageCanvas = memo(
         baseTool,
         getCanvasPointer,
       ],
+    );
+
+    // Share throttled updates between DOM pointer capture and legacy Konva input.
+    const moveCurvePick = useCallback(
+      (y: number) => {
+        if (!curveGesture.current) return;
+        curveGesture.current.latestY = y;
+        curvePendingY.current = y;
+        if (curveFrame.current === null) {
+          curveFrame.current = requestAnimationFrame(() => {
+            curveFrame.current = null;
+            if (curvePendingY.current !== null) publishCurveDrag(curvePendingY.current);
+            curvePendingY.current = null;
+          });
+        }
+      },
+      [publishCurveDrag],
     );
 
     const handleMove = useCallback(
@@ -3617,8 +3745,122 @@ const ImageCanvas = memo(
             ? 0
             : 1;
 
+    // Keep preview painting inside the small loupe canvas, not a full-image compositor layer.
+    const handleCurveLoupeMove = (e: React.PointerEvent<HTMLDivElement>) => {
+      const loupe = curveLoupeRef.current;
+      const preview = curveLoupeImageRef.current;
+      const canvas = curveLoupeCanvasRef.current;
+      const root = rootRef.current;
+      if (!loupe || !preview || !canvas || !root) return;
+
+      const gesture = curveGesture.current;
+      if (gesture) {
+        loupe.style.display = 'none';
+        if (gesture.pointerId === e.pointerId) moveCurvePick(e.clientY);
+        return;
+      }
+      if (!curvePickerChannel || isCropping || isMasking || isAiEditing || showOriginal) {
+        loupe.style.display = 'none';
+        return;
+      }
+
+      const rect = root.getBoundingClientRect();
+      if (
+        !rect.width ||
+        !rect.height ||
+        !imageRenderSize.width ||
+        !imageRenderSize.height ||
+        !preview.complete ||
+        !preview.naturalWidth ||
+        !preview.naturalHeight
+      ) {
+        loupe.style.display = 'none';
+        return;
+      }
+      const x = ((e.clientX - rect.left) * root.clientWidth) / rect.width;
+      const y = ((e.clientY - rect.top) * root.clientHeight) / rect.height;
+      const { positionX, positionY, scale } = viewTransformRef.current;
+      const imgX = (x - positionX) / Math.max(scale, 0.001) - imageRenderSize.offsetX;
+      const imgY = (y - positionY) / Math.max(scale, 0.001) - imageRenderSize.offsetY;
+      if (imgX < 0 || imgY < 0 || imgX > imageRenderSize.width || imgY > imageRenderSize.height) {
+        loupe.style.display = 'none';
+        return;
+      }
+
+      const viewportScale = 1;
+      const diameter = 110;
+      const magnification = 3.5 * Math.max(0.2, viewTransformRef.current.scale);
+      const margin = 23 / viewportScale;
+      const size = diameter / viewportScale;
+      const left = x + margin + size < root.clientWidth ? x + margin : x - margin - size;
+      const top = y - margin - size >= 0 ? y - margin - size : y + margin;
+      const inside = diameter - 6;
+      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      const pixelSize = Math.round(inside * dpr);
+      if (canvas.width !== pixelSize || canvas.height !== pixelSize) {
+        canvas.width = pixelSize;
+        canvas.height = pixelSize;
+      }
+      const context = canvas.getContext('2d', { alpha: false });
+      if (!context) {
+        loupe.style.display = 'none';
+        return;
+      }
+      // Draw the visible source-preview crop; no GPU readback on hover.
+      const sx = (imgX / imageRenderSize.width) * preview.naturalWidth;
+      const sy = (imgY / imageRenderSize.height) * preview.naturalHeight;
+      const sw = (inside / magnification / imageRenderSize.width) * preview.naturalWidth;
+      const sh = (inside / magnification / imageRenderSize.height) * preview.naturalHeight;
+      const x0 = sx - sw / 2;
+      const y0 = sy - sh / 2;
+      const srcX = Math.max(0, x0);
+      const srcY = Math.max(0, y0);
+      const srcRight = Math.min(preview.naturalWidth, x0 + sw);
+      const srcBottom = Math.min(preview.naturalHeight, y0 + sh);
+      context.setTransform(dpr, 0, 0, dpr, 0, 0);
+      context.fillStyle = '#1c1c1c';
+      context.fillRect(0, 0, inside, inside);
+      if (srcRight > srcX && srcBottom > srcY) {
+        context.imageSmoothingEnabled = magnification < 24;
+        context.drawImage(
+          preview,
+          srcX,
+          srcY,
+          srcRight - srcX,
+          srcBottom - srcY,
+          ((srcX - x0) / sw) * inside,
+          ((srcY - y0) / sh) * inside,
+          ((srcRight - srcX) / sw) * inside,
+          ((srcBottom - srcY) / sh) * inside,
+        );
+      }
+      loupe.style.display = 'block';
+      loupe.style.transform = `translate3d(${left}px, ${top}px, 0) scale(${1 / viewportScale})`;
+    };
+
+    const hideCurveLoupe = () => {
+      if (curveLoupeRef.current) curveLoupeRef.current.style.display = 'none';
+    };
+
+
+    const finishCurvePointer = (event: React.PointerEvent<HTMLDivElement>) => {
+      const gesture = curveGesture.current;
+      if (!gesture || gesture.pointerId !== event.pointerId) return;
+      gesture.latestY = event.clientY;
+      gesture.released = true;
+      if (curveFrame.current !== null) cancelAnimationFrame(curveFrame.current);
+      curveFrame.current = null;
+      curvePendingY.current = null;
+      if (curveDrag.current) {
+        publishCurveDrag(event.clientY);
+        curveGesture.current = null;
+        curveDrag.current = null;
+      }
+      setEditor({ isSliderDragging: false });
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+    };
     return (
-      <div className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>
+      <div ref={rootRef} className="relative" style={{ width: '100%', height: '100%', cursor: effectiveCursor }}>
         <div
           className="absolute inset-0 w-full h-full transition-opacity duration-200 flex items-center justify-center"
           style={{
@@ -4298,6 +4540,69 @@ const ImageCanvas = memo(
             </>,
             overlayRoot,
           )}
+
+        {curvePickerChannel && !isCropping && !isMasking && !isAiEditing && !showOriginal && (
+          <div
+            data-curve-picker-surface
+            className="absolute inset-0"
+            style={{ zIndex: 50, cursor: CURVE_PIPETTE_CURSOR, touchAction: 'none' }}
+            onPointerMove={handleCurveLoupeMove}
+            onPointerLeave={hideCurveLoupe}
+            onPointerDown={(event) => {
+              if (event.button !== 0) return;
+              const root = rootRef.current;
+              if (!root) return;
+              const bounds = root.getBoundingClientRect();
+              const sx = ((event.clientX - bounds.left) * root.clientWidth) / bounds.width;
+              const sy = ((event.clientY - bounds.top) * root.clientHeight) / bounds.height;
+              const { positionX, positionY, scale } = viewTransformRef.current;
+              const pos = {
+                x: (sx - positionX) / Math.max(0.001, scale) - imageRenderSize.offsetX,
+                y: (sy - positionY) / Math.max(0.001, scale) - imageRenderSize.offsetY,
+              };
+              if (!isInsideImage(pos)) return;
+              event.preventDefault();
+              event.stopPropagation();
+              hideCurveLoupe();
+              beginCurvePick(pos, event.clientY, event.pointerId);
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }}
+            onPointerUp={finishCurvePointer}
+            onPointerCancel={finishCurvePointer}
+            onLostPointerCapture={(event) => {
+              if (curveGesture.current?.pointerId === event.pointerId) finishCurvePointer(event);
+            }}
+          >
+            <img
+              ref={curveLoupeImageRef}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              src={finalPreviewUrl || displayState.base || selectedImage.thumbnailUrl}
+              style={{ display: 'none' }}
+            />
+            <div
+              ref={curveLoupeRef}
+              aria-hidden="true"
+              className="absolute pointer-events-none"
+              style={{
+                display: 'none',
+                left: 0,
+                top: 0,
+                width: 110,
+                height: 110,
+                borderRadius: '50%',
+                overflow: 'hidden',
+                border: '3px solid rgba(255,255,255,0.95)',
+                background: '#1c1c1c',
+                boxShadow: '0 4px 18px rgba(0,0,0,.52), 0 0 0 1px rgba(0,0,0,.7)',
+                zIndex: 20,
+              }}
+            >
+              <canvas ref={curveLoupeCanvasRef} style={{ width: 104, height: 104 }} />
+            </div>
+          </div>
+        )}
       </div>
     );
   },
