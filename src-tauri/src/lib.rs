@@ -594,6 +594,102 @@ async fn release_original_preview(state: tauri::State<'_, AppState>) -> Result<(
     .map_err(|e| format!("Task panicked: {}", e))
 }
 
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct CurveToneSample {
+    r: u8,
+    g: u8,
+    b: u8,
+}
+
+/// Sample one preview pixel immediately before the selected curve is applied.
+#[tauri::command]
+async fn sample_curve_tone(
+    app_handle: tauri::AppHandle,
+    image_path: String,
+    x: f32,
+    y: f32,
+    channel: String,
+    js_adjustments: Value,
+) -> Result<CurveToneSample, String> {
+    tokio::task::spawn_blocking(move || {
+        if !x.is_finite() || !y.is_finite() || !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
+            return Err("Sample coordinates must be in [0, 1]".into());
+        }
+        if !matches!(channel.as_str(), "luma" | "red" | "green" | "blue") {
+            return Err("Invalid curve channel".into());
+        }
+
+        let state = app_handle.state::<AppState>();
+        let loaded_image = state
+            .original_image
+            .lock()
+            .unwrap()
+            .clone()
+            .ok_or("No original image loaded")?;
+        if loaded_image.path != image_path {
+            return Err("Image changed while sampling".into());
+        }
+
+        let mut adjustments = js_adjustments;
+        hydrate_adjustments(&state, &mut adjustments);
+        let transform_hash = calculate_transform_hash(&adjustments);
+        let preview = state
+            .cached_preview_for(PreviewTarget::Editor)
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .filter(|cached| cached.transform_hash == transform_hash)
+            .map(|cached| cached.preview.clone())
+            .ok_or("Editor preview is not ready for sampling")?;
+        let source = preview.render_source(&adjustments);
+        let (width, height) = source.size();
+        if width == 0 || height == 0 {
+            return Err("Empty preview".into());
+        }
+        let px = ((x * width as f32).floor() as u32).min(width - 1);
+        let py = ((y * height as f32).floor() as u32).min(height - 1);
+
+        let mut render = EditorRender::prepare(
+            &state,
+            &loaded_image,
+            &adjustments,
+            (width, height),
+            preview.scale,
+            preview.unscaled_crop_offset,
+            resolve_render_options_from_handle(&app_handle, loaded_image.is_raw),
+            state.load_image_generation.load(Ordering::SeqCst),
+        );
+        render.adjustments.curve_sample_mode = if channel == "luma" { 1 } else { 2 };
+        let context = get_or_init_gpu_context(&state, &app_handle)?;
+        let pixel = process_and_get_dynamic_image(
+            &context,
+            &state,
+            &source,
+            render.request(
+                Some(gpu_processing::Roi {
+                    x: px,
+                    y: py,
+                    width: 1,
+                    height: 1,
+                }),
+                false,
+            ),
+            "sample_curve_tone",
+        )?
+        .to_rgba8()
+        .get_pixel(0, 0)
+        .0;
+        Ok(CurveToneSample {
+            r: pixel[0],
+            g: pixel[1],
+            b: pixel[2],
+        })
+    })
+    .await
+    .map_err(|e| format!("Task panicked: {e}"))?
+}
+
 struct EditorRender {
     adjustments: image_processing::AllAdjustments,
     masks: mask_generation::GeneratedMasks,
@@ -2900,6 +2996,7 @@ pub fn run() {
             image_processing::calculate_auto_adjustments,
             image_processing::sample_white_balance,
             image_processing::sample_color_harmony_histogram,
+            sample_curve_tone,
             auto_straighten::calculate_auto_straighten,
             file_management::apply_auto_straighten_to_paths,
             mask_generation::generate_mask_overlay,
