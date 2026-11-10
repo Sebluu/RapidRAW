@@ -4,6 +4,7 @@ import { SubMask, SubMaskMode } from '../components/panel/right/Masks';
 import type { AdjustmentLayout, AppSettings } from '../components/ui/AppProperties';
 import type { WhiteBalance } from './whiteBalance';
 import defaultAdjustments from './defaultAdjustments.json';
+import { normalizeEffectStudio, type EffectStudioState } from './effectStudio';
 
 export enum ActiveChannel {
   Blue = 'blue',
@@ -281,6 +282,7 @@ export interface ParametricCurve {
 }
 
 export interface Adjustments {
+  effectStudio: EffectStudioState;
   activeTools: ActiveTools;
   [index: string]: any;
   aiDenoiseAmount: number;
@@ -825,6 +827,7 @@ export const normalizeLoadedAdjustments = (loadedAdjustments: Adjustments): any 
   return {
     ...INITIAL_ADJUSTMENTS,
     ...loadedAdjustments,
+    effectStudio: normalizeEffectStudio(loadedAdjustments.effectStudio),
     guidedPerspective: {
       enabled: loadedAdjustments.guidedPerspective?.enabled ?? false,
       lines: (() => {
@@ -1164,7 +1167,8 @@ export const DEFAULT_SPEED_EDIT_ADJUSTMENTS: string[] = [
 
 export const COPYABLE_ADJUSTMENT_KEYS: string[] = Object.values(ADJUSTMENT_GROUPS)
   .flat()
-  .flatMap((group) => group.keys);
+  .flatMap((group) => group.keys)
+  .concat('effectStudio');
 
 export const ADJUSTMENT_SECTIONS: Sections = {
   basic: [

@@ -81,6 +81,7 @@ const ALL_PANELS: Panel[] = [
   Panel.Crop,
   Panel.Masks,
   Panel.Ai,
+  Panel.Prism,
   Panel.Presets,
 ];
 
@@ -93,6 +94,7 @@ const DEFAULT_PANEL_DEFAULT_REGIONS: Record<Panel, PanelRegion> = {
   [Panel.Crop]: 'rightTop',
   [Panel.Masks]: 'rightTop',
   [Panel.Ai]: 'rightTop',
+  [Panel.Prism]: 'rightTop',
   [Panel.Presets]: 'rightTop',
 };
 
@@ -118,7 +120,7 @@ export function reconcileWorkspace(
     panelLayout: {
       leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export, ...(isTetheringSupported ? [Panel.Tethering] : [])],
       leftBottom: [],
-      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+      rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Prism, Panel.Presets],
       rightBottom: [],
     },
     activePanels: {
@@ -158,11 +160,18 @@ export function reconcileWorkspace(
   });
 
   allowedPanels.forEach((panel) => {
-    if (!seenPanels.has(panel)) {
-      const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
-      sanitizedLayout[targetRegion].push(panel);
-      seenPanels.add(panel);
+    if (seenPanels.has(panel)) return;
+    const targetRegion = DEFAULT_PANEL_DEFAULT_REGIONS[panel] || 'leftTop';
+    const items = sanitizedLayout[targetRegion];
+    if (panel === Panel.Prism) {
+      const aiIndex = items.indexOf(Panel.Ai);
+      const presetsIndex = items.indexOf(Panel.Presets);
+      const insertAt = aiIndex >= 0 ? aiIndex + 1 : presetsIndex >= 0 ? presetsIndex : items.length;
+      items.splice(insertAt, 0, panel);
+    } else {
+      items.push(panel);
     }
+    seenPanels.add(panel);
   });
 
   const sanitizedActive: Record<PanelRegion, Panel | null> = {
@@ -295,7 +304,7 @@ export const useUIStore = create<UIState>((set, get) => ({
   panelLayout: {
     leftTop: [Panel.Metadata, Panel.FolderTree, Panel.Export],
     leftBottom: [],
-    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Presets],
+    rightTop: [Panel.Adjustments, Panel.Crop, Panel.Masks, Panel.Ai, Panel.Prism, Panel.Presets],
     rightBottom: [],
   },
   activePanels: {

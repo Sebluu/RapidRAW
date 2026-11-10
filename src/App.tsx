@@ -1,4 +1,4 @@
-import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { type PointerEvent as ReactPointerEvent, useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
 import { getCurrentWindow } from '@tauri-apps/api/window';
@@ -85,6 +85,8 @@ import ImageProcessingManager from './components/managers/ImageProcessingManager
 import ImageLoaderManager from './components/managers/ImageLoaderManager';
 import { isImmichAlbumId } from './components/immich/immichApi';
 import { useImmichEvents } from './components/immich/useImmichEvents';
+
+const PrismStudioPanel = lazy(() => import('./components/panel/right/PrismStudioPanel'));
 
 const DND_MEASURING = { droppable: { strategy: MeasuringStrategy.Always } };
 
@@ -763,6 +765,12 @@ function App() {
           return <MasksPanel />;
         case Panel.Ai:
           return <AIPanel />;
+        case Panel.Prism:
+          return (
+            <Suspense fallback={null}>
+              <PrismStudioPanel />
+            </Suspense>
+          );
         case Panel.Presets:
           return <PresetsPanel onNavigateToCommunity={() => setUI({ activeView: 'community' })} />;
         case Panel.Tethering:
