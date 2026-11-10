@@ -1,0 +1,140 @@
+name: Combined v1.6.9 — Harmonizer, Curves and Effect Studio
+on:
+  push:
+    branches:
+      - test/combined-v1.6.9-staging
+      - test/harmonizer-and-curves
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: combined-v169-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Color Harmonizer, Curves and Effect Studio frontend
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Color Harmonizer behavior tests
+        run: node scripts/test-color-harmony.mjs
+      - name: Effect Studio state and persistence tests
+        run: node --test scripts/test-effect-studio.mjs
+      - name: TypeScript regressions relative to upstream v1.6.9
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/rapidraw-upstream" 820d14409efe52a7711257e2d2eb7175b738b056
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/rapidraw-upstream/node_modules"
+          node scripts/check-typecheck-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+      - name: ESLint regressions relative to upstream v1.6.9
+        if: success() || failure()
+        run: |
+          node scripts/check-eslint-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+          node scripts/check-eslint-curves-regressions.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/rapidraw-upstream"
+      - name: Frontend production build
+        if: success() || failure()
+        run: npm run build
+      - name: i18n runtime checks
+        if: success() || failure()
+        run: npm run i18n:runtime-check
+      - name: Prettier for combined features
+        if: success() || failure()
+        run: |
+          npx prettier --check \
+            src/App.tsx \
+            src/components/ui/AppProperties.tsx \
+            src/components/panel/PanelSwitcher.tsx \
+            src/components/panel/Editor.tsx \
+            src/components/panel/editor/ImageCanvas.tsx \
+            src/components/adjustments/Curves.tsx \
+            src/components/adjustments/ColorHarmonizer.tsx \
+            src/components/adjustments/Color.tsx \
+            src/components/panel/right/PrismStudioPanel.tsx \
+            src/components/panel/right/studio/KaleidoscopeControls.tsx \
+            src/components/panel/right/studio/CreativeEffectControls.tsx \
+            src/components/ui/OptionPicker.tsx \
+            src/components/ui/Slider.tsx \
+            src/store/useEditorStore.ts \
+            src/store/useUIStore.ts \
+            src/utils/adjustments.ts \
+            src/utils/canvasControls.ts \
+            src/utils/colorHarmony.ts \
+            src/utils/effectStudio.ts \
+            src/utils/defaultAdjustments.json \
+            src/i18n/locales/en.json \
+            src/i18n/locales/de.json \
+            scripts/test-color-harmony.mjs \
+            scripts/test-effect-studio.mjs \
+            scripts/check-eslint-curves-regressions.mjs \
+            docs/color-harmonizer.md \
+            docs/targeted-curves.md \
+            docs/prism-studio.md
+      - name: Exact Prettier changes on formatting failure
+        if: failure()
+        run: |
+          npx prettier --write \
+            src/App.tsx src/components/ui/AppProperties.tsx src/components/panel/PanelSwitcher.tsx \
+            src/components/panel/Editor.tsx src/components/panel/editor/ImageCanvas.tsx \
+            src/components/adjustments/Curves.tsx src/components/panel/right/PrismStudioPanel.tsx \
+            src/components/panel/right/studio/KaleidoscopeControls.tsx \
+            src/components/panel/right/studio/CreativeEffectControls.tsx \
+            src/components/ui/OptionPicker.tsx src/store/useEditorStore.ts src/store/useUIStore.ts \
+            src/utils/adjustments.ts src/utils/canvasControls.ts src/utils/effectStudio.ts \
+            src/utils/defaultAdjustments.json src/i18n/locales/en.json src/i18n/locales/de.json \
+            scripts/test-effect-studio.mjs scripts/check-eslint-curves-regressions.mjs docs/targeted-curves.md docs/prism-studio.md
+          git --no-pager diff -- src/ scripts/ docs/
+
+  rust:
+    name: Combined Rust format and compilation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config patchelf libgphoto2-dev
+      - name: Rust formatting
+        run: |
+          cargo fmt --manifest-path src-tauri/Cargo.toml -- --check || {
+            cargo fmt --manifest-path src-tauri/Cargo.toml
+            git --no-pager diff -- src-tauri/src/image_processing.rs src-tauri/src/gpu_processing.rs src-tauri/src/lib.rs
+            exit 1
+          }
+      - name: Rust compilation
+        if: success() || failure()
+        run: cargo check --locked --manifest-path src-tauri/Cargo.toml
+
+  shader:
+    name: Combined WGSL Naga validation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/shader-validation
+      - name: Validate combined WGSL with Naga
+        run: cargo run --quiet --manifest-path tools/shader-validation/Cargo.toml
