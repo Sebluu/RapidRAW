@@ -613,7 +613,11 @@ async fn sample_curve_tone(
     js_adjustments: Value,
 ) -> Result<CurveToneSample, String> {
     tokio::task::spawn_blocking(move || {
-        if !x.is_finite() || !y.is_finite() || !(0.0..=1.0).contains(&x) || !(0.0..=1.0).contains(&y) {
+        if !x.is_finite()
+            || !y.is_finite()
+            || !(0.0..=1.0).contains(&x)
+            || !(0.0..=1.0).contains(&y)
+        {
             return Err("Sample coordinates must be in [0, 1]".into());
         }
         if !matches!(channel.as_str(), "luma" | "red" | "green" | "blue") {
