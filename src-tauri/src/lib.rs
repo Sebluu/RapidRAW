@@ -39,6 +39,7 @@ mod clone_heal;
 mod culling;
 mod edit_in;
 mod effect_maps;
+mod effect_studio;
 mod exif_processing;
 mod export_processing;
 mod face_masking;

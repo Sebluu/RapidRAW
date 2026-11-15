@@ -9,6 +9,7 @@ import {
   Crop,
   Layers,
   Paintbrush,
+  WandSparkles,
   SwatchBook,
   FileInput,
   Camera,
@@ -24,6 +25,7 @@ export const PANEL_ICONS: Record<Panel, LucideIcon> = {
   [Panel.Crop]: Crop,
   [Panel.Masks]: Layers,
   [Panel.Ai]: Paintbrush,
+  [Panel.Prism]: WandSparkles,
   [Panel.Presets]: SwatchBook,
   [Panel.Export]: FileInput,
   [Panel.FolderTree]: FolderIcon,
@@ -36,6 +38,7 @@ const PANEL_TITLES: Record<Panel, string> = {
   [Panel.Crop]: 'editor.switcher.tooltips.crop',
   [Panel.Masks]: 'editor.switcher.tooltips.masks',
   [Panel.Ai]: 'editor.switcher.tooltips.inpaint',
+  [Panel.Prism]: 'editor.switcher.tooltips.prism',
   [Panel.Presets]: 'editor.switcher.tooltips.presets',
   [Panel.Export]: 'editor.switcher.tooltips.export',
   [Panel.FolderTree]: 'library.folders.sourcesTitle',
@@ -255,6 +258,7 @@ export function MobilePanelSwitcher({
     Panel.Crop,
     Panel.Masks,
     Panel.Ai,
+    Panel.Prism,
     Panel.Presets,
     Panel.Export,
   ];
@@ -262,10 +266,14 @@ export function MobilePanelSwitcher({
   const isVertical = placement === 'right';
 
   return (
-    <div className={clsx(
-      'flex items-center p-1.5 gap-1 shrink-0 custom-scrollbar',
-      isVertical ? 'flex-col overflow-y-auto h-full border-l border-surface' : 'flex-row overflow-x-auto w-full border-t border-surface',
-    )}>
+    <div
+      className={clsx(
+        'flex items-center p-1.5 gap-1 shrink-0 custom-scrollbar',
+        isVertical
+          ? 'flex-col overflow-y-auto h-full border-l border-surface'
+          : 'flex-row overflow-x-auto w-full border-t border-surface',
+      )}
+    >
       {MOBILE_PANELS.map((id) => {
         const Icon = PANEL_ICONS[id];
         const isActive = activePanel === id;
