@@ -1029,13 +1029,14 @@
       "prismMode": "Prisma-Modus",
       "dispersion": "Farbdispersion",
       "refractionStrength": "Brechungsstärke",
-      "luminanceBlend": "Luminanz-Überblendung",
+      "luminanceBlend": "Nach Helligkeit begrenzen",
       "maskLow": "Schatten-Grenze",
       "maskHigh": "Lichter-Grenze",
       "feather": "Weicher Übergang",
       "blur": "Überlagerungsunschärfe",
       "radius": "Umgebungsradius",
-      "smoothing": "Normalisierungs-Glättung"
+      "smoothing": "Normalisierungs-Glättung",
+      "luminanceBlendHint": "Aus: das ganze Bild bearbeiten. Bei 100 % Stärke ersetzt der Effekt sein Eingangsbild vollständig."
     },
     "switcher": {
       "tooltips": {

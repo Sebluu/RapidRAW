@@ -1577,7 +1577,7 @@ pub struct FractalFeedbackGpu {
     pub high: f32,
     pub feather: f32,
     pub blur: f32,
-    _pad0: f32,
+    pub luminance_enabled: u32,
     _pad1: f32,
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1593,7 +1593,7 @@ pub struct PrismGpu {
     pub high: f32,
     pub feather: f32,
     pub blur: f32,
-    _pad0: f32,
+    pub luminance_enabled: u32,
     _pad1: f32,
 }
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Pod, Zeroable, Default)]
@@ -1644,10 +1644,14 @@ fn parse_fractal_feedback(value: &Value) -> FractalFeedbackGpu {
     let (low, high, feather, blur) = studio_range(s);
     FractalFeedbackGpu {
         enabled: 1,
+        luminance_enabled: s
+            .get("luminanceEnabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true) as u32,
         iterations: studio_number(s, "iterations", 4.0, 1.0, 7.0) as u32,
         scale: studio_number(s, "scale", 0.78, 0.4, 0.95),
         rotation: studio_number(s, "rotation", 12.0, -180.0, 180.0).to_radians(),
-        amount: studio_number(s, "amount", 38.0, 0.0, 100.0) / 100.0,
+        amount: studio_number(s, "amount", 100.0, 0.0, 100.0) / 100.0,
         decay: studio_number(s, "decay", 65.0, 0.0, 100.0) / 100.0,
         low,
         high,
@@ -1664,12 +1668,16 @@ fn parse_prism(value: &Value) -> PrismGpu {
     let (low, high, feather, blur) = studio_range(s);
     PrismGpu {
         enabled: 1,
+        luminance_enabled: s
+            .get("luminanceEnabled")
+            .and_then(Value::as_bool)
+            .unwrap_or(true) as u32,
         mode: if s.get("mode").and_then(Value::as_str) == Some("refraction") {
             2
         } else {
             1
         },
-        amount: studio_number(s, "amount", 45.0, 0.0, 100.0) / 100.0,
+        amount: studio_number(s, "amount", 100.0, 0.0, 100.0) / 100.0,
         separation: studio_number(s, "separation", 12.0, 0.0, 60.0),
         angle: studio_number(s, "angle", 0.0, -180.0, 180.0).to_radians(),
         refraction: studio_number(s, "refraction", 25.0, 0.0, 100.0) / 100.0,
@@ -4761,7 +4769,7 @@ fn compute_white_balance_sample(
 }
 
 #[tauri::command]
-pub fn sample_color_harmony_histogram(
+pub async fn sample_color_harmony_histogram(
     image_path: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<f32>, String> {
@@ -4788,6 +4796,12 @@ pub fn sample_color_harmony_histogram(
         return Err("Preview for requested image is not ready yet".into());
     }
     let image = preview.preview.image;
+    tokio::task::spawn_blocking(move || color_harmony_histogram(&image, loaded.is_raw))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn color_harmony_histogram(image: &DynamicImage, is_raw: bool) -> Result<Vec<f32>, String> {
     let (width, height) = image.dimensions();
     if width == 0 || height == 0 {
         return Err("Empty preview".into());
@@ -4797,7 +4811,7 @@ pub fn sample_color_harmony_histogram(
     let mut histogram = vec![0.0_f32; 72];
     for y in (0..height).step_by(stride as usize) {
         for x in (0..width).step_by(stride as usize) {
-            let Some(rgb) = read_linear_rgb(&image, x, y, loaded.is_raw) else {
+            let Some(rgb) = read_linear_rgb(image, x, y, is_raw) else {
                 continue;
             };
             let r = rgb[0].max(0.0);

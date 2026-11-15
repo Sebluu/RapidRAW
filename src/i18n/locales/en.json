@@ -1029,13 +1029,14 @@
       "prismMode": "Prism style",
       "dispersion": "Chromatic dispersion",
       "refractionStrength": "Refraction strength",
-      "luminanceBlend": "Luminance blend",
+      "luminanceBlend": "Limit by luminance",
       "maskLow": "Dark threshold",
       "maskHigh": "Bright threshold",
       "feather": "Soft transition",
       "blur": "Overlay blur",
       "radius": "Neighborhood radius",
-      "smoothing": "Normalization smoothing"
+      "smoothing": "Normalization smoothing",
+      "luminanceBlendHint": "Off: transform the whole image. At 100% amount, the effect fully replaces its input."
     },
     "switcher": {
       "tooltips": {

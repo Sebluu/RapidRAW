@@ -56,7 +56,41 @@ test('older triangle effects migrate and duplicate types are ignored', () => {
 });
 
 test('invalid creative values cannot reach the GPU settings', () => {
-  assert.equal(model.normalizeFeedback({ amount: Infinity }).amount, 38);
+  assert.equal(model.normalizeFeedback({ amount: Infinity }).amount, 100);
   assert.equal(model.normalizePrism({ separation: 10000 }).separation, 60);
   assert.equal(model.normalizeLocalNormalize({ radius: -10 }).radius, 2);
+});
+
+test('new effects cover the whole image and preserve an explicit luminance choice', () => {
+  for (const type of ['fractalFeedback', 'prism']) {
+    const effect = model.createStudioEffect(type);
+    assert.equal(effect.settings.luminanceEnabled, false);
+    assert.equal(effect.settings.amount, 100);
+    effect.settings.maskLow = 25;
+    effect.settings.maskHigh = 70;
+    effect.settings.luminanceEnabled = true;
+    const reload = model.normalizeEffectStudio(JSON.parse(JSON.stringify({ effects: [effect] })));
+    assert.equal(reload.effects[0].settings.luminanceEnabled, true);
+    const unmasked = model.normalizeEffectStudio({
+      effects: [{ ...effect, settings: { ...effect.settings, luminanceEnabled: false } }],
+    });
+    assert.equal(unmasked.effects[0].settings.luminanceEnabled, false);
+    assert.equal(unmasked.effects[0].settings.maskLow, 25);
+    assert.equal(unmasked.effects[0].settings.maskHigh, 70);
+  }
+});
+
+test('legacy effects retain their luminance windows and blend amounts', () => {
+  for (const type of ['fractalFeedback', 'prism']) {
+    const effect = model.createStudioEffect(type);
+    delete effect.settings.luminanceEnabled;
+    effect.settings.amount = 38;
+    effect.settings.maskLow = 20;
+    effect.settings.maskHigh = 80;
+    const saved = model.normalizeEffectStudio({ effects: [effect] }).effects[0];
+    assert.equal(saved.settings.luminanceEnabled, true);
+    assert.equal(saved.settings.amount, 38);
+    assert.equal(saved.settings.maskLow, 20);
+    assert.equal(saved.settings.maskHigh, 80);
+  }
 });

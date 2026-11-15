@@ -20,6 +20,7 @@ export interface KaleidoscopeSettings {
   edgeWidth: number;
 }
 export interface LuminanceBlend {
+  luminanceEnabled: boolean;
   maskLow: number;
   maskHigh: number;
   feather: number;
@@ -84,8 +85,9 @@ export const DEFAULT_FEEDBACK: FractalFeedbackSettings = {
   iterations: 4,
   scale: 0.78,
   rotation: 12,
-  amount: 38,
+  amount: 100,
   decay: 65,
+  luminanceEnabled: false,
   maskLow: 0,
   maskHigh: 100,
   feather: 10,
@@ -93,10 +95,11 @@ export const DEFAULT_FEEDBACK: FractalFeedbackSettings = {
 };
 export const DEFAULT_PRISM: PrismSettings = {
   mode: 'dispersion',
-  amount: 45,
+  amount: 100,
   separation: 12,
   angle: 0,
   refraction: 25,
+  luminanceEnabled: false,
   maskLow: 0,
   maskHigh: 100,
   feather: 10,
@@ -134,6 +137,7 @@ function normalizeLuminance(s: Partial<LuminanceBlend>): LuminanceBlend {
   const a = finite(s.maskLow, 0, 0, 100);
   const b = finite(s.maskHigh, 100, 0, 100);
   return {
+    luminanceEnabled: typeof s.luminanceEnabled === 'boolean' ? s.luminanceEnabled : true,
     maskLow: Math.min(a, b),
     maskHigh: Math.max(a, b),
     feather: finite(s.feather, 10, 0, 100),

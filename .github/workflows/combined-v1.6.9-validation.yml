@@ -2,6 +2,8 @@ name: Combined v1.6.9 — Harmonizer, Curves and Effect Studio
 on:
   push:
     branches:
+      - test/combined-v1.6.9
+      - feature/effect-studio-v1.6.9
       - test/combined-v1.6.9-staging
       - test/harmonizer-and-curves
   workflow_dispatch:
@@ -136,4 +138,11 @@ jobs:
         with:
           workspaces: tools/shader-validation
       - name: Validate combined WGSL with Naga
-        run: cargo run --quiet --manifest-path tools/shader-validation/Cargo.toml
+        run: cargo run --locked --quiet --manifest-path tools/shader-validation/Cargo.toml
+      - name: Headless Vulkan dependencies
+        run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers
+      - name: GPU effect behavior
+        env:
+          WGPU_BACKEND: vulkan
+          XDG_RUNTIME_DIR: /tmp
+        run: cargo test --locked --manifest-path tools/shader-validation/Cargo.toml

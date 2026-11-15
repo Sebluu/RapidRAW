@@ -6,3 +6,8 @@ publish = false
 
 [dependencies]
 naga = { version = "=29.0.4", features = ["wgsl-in"] }
+
+[dev-dependencies]
+wgpu = "=29.0.4"
+pollster = "0.4"
+half = "2.7"

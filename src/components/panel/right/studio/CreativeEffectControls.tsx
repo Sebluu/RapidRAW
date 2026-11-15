@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import Slider from '../../../ui/Slider';
+import Switch from '../../../ui/Switch';
 import OptionPicker from '../../../ui/OptionPicker';
 import { useEditorStore } from '../../../../store/useEditorStore';
 import {
@@ -50,7 +51,7 @@ export default function CreativeEffectControls({ effect, onChange }: Props) {
         : DEFAULT_LOCAL_NORMALIZE;
   const numeric = effect.settings as unknown as Record<string, number>;
 
-  const update = (key: string, value: number | string) => {
+  const update = (key: string, value: number | string | boolean) => {
     switch (effect.type) {
       case 'fractalFeedback':
         onChange({ ...effect, settings: { ...effect.settings, [key]: value } });
@@ -103,8 +104,14 @@ export default function CreativeEffectControls({ effect, onChange }: Props) {
       </div>
       {effect.type !== 'localNormalize' && (
         <div className="border-t border-border pt-3">
-          <div className="mb-2 text-sm font-semibold text-text-primary">{l('luminanceBlend')}</div>
-          {MASK.map(slider)}
+          <Switch
+            label={l('luminanceBlend')}
+            checked={effect.settings.luminanceEnabled}
+            onChange={(enabled) => update('luminanceEnabled', enabled)}
+          />
+          <p className="mt-2 text-xs text-text-secondary">{l('luminanceBlendHint')}</p>
+          {effect.settings.luminanceEnabled && MASK.filter((field) => field.key !== 'blur').map(slider)}
+          {slider(MASK[MASK.length - 1])}
         </div>
       )}
     </div>
