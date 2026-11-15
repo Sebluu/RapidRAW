@@ -61,6 +61,18 @@ test('invalid creative values cannot reach the GPU settings', () => {
   assert.equal(model.normalizeLocalNormalize({ radius: -10 }).radius, 2);
 });
 
+test('local normalization retains saved values and bounds its new spatial controls', () => {
+  assert.equal(model.createStudioEffect('localNormalize').settings.amount, 50);
+  const effect = { ...model.createStudioEffect('localNormalize'), settings: { amount: 25, radius: 32, smoothing: 80 } };
+  const saved = model.normalizeEffectStudio(JSON.parse(JSON.stringify({ effects: [effect] }))).effects[0];
+  assert.deepEqual(saved.settings, effect.settings);
+  assert.deepEqual(model.normalizeLocalNormalize({ amount: -5, radius: 500, smoothing: NaN }), {
+    amount: 0,
+    radius: 64,
+    smoothing: 50,
+  });
+});
+
 test('new effects cover the whole image and preserve an explicit luminance choice', () => {
   for (const type of ['fractalFeedback', 'prism']) {
     const effect = model.createStudioEffect(type);

@@ -105,7 +105,7 @@ export const DEFAULT_PRISM: PrismSettings = {
   feather: 10,
   blur: 0,
 };
-export const DEFAULT_LOCAL_NORMALIZE: LocalNormalizeSettings = { amount: 25, radius: 16, smoothing: 50 };
+export const DEFAULT_LOCAL_NORMALIZE: LocalNormalizeSettings = { amount: 50, radius: 16, smoothing: 50 };
 const finite = (value: unknown, fallback: number, low: number, high: number) =>
   typeof value === 'number' && Number.isFinite(value) ? Math.min(high, Math.max(low, value)) : fallback;
 const modes: KaleidoscopeMode[] = ['radial', 'mirror', 'grid', 'spiral', 'fractal', 'geometric', 'triangle'];
