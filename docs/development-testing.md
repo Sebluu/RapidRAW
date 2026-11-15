@@ -24,7 +24,7 @@ For a packaged-like frontend and optimized Rust binary:
 
 ```bash
 npm run tauri -- build --no-bundle
-./src-tauri/target/release/rapidraw
+./src-tauri/target/release/RapidRAW
 ```
 
 Use the repository's normal Linux development dependencies. `npm start` uses a
@@ -74,3 +74,11 @@ TypeScript/ESLint regression scripts compare against a worktree of exact v1.6.9.
 They report inherited diagnostics separately; a passing regression check does not
 mean upstream has no diagnostics. GPU shader tests need a Vulkan adapter (Mesa
 lavapipe is sufficient for functional tests, not a hardware performance claim).
+
+For Local Normalize, compare a dark textured region and bright water/clouds at
+0%, 50% and 100% Amount. Flat dark areas must not turn gray, bright detail must
+remain visible, and changing Smoothness must change spatial transitions rather
+than simply weaken the effect. Check both RAW and JPEG, preview and full-size
+export, and Local Normalize followed by Feedback and Prism. GPU tests cover
+shadow recovery, flat-field identity, zero strength, alpha, linear color ratios,
+HDR retention, sRGB equivalence and preview/export spatial scaling.

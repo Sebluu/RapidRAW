@@ -980,8 +980,8 @@
       "fractalFeedback": "Fractal Feedback",
       "fractalFeedbackDesc": "Rekursive Bild-Echos mit weicher Überblendung",
       "localNormalize": "Local Normalize · Experimentell",
-      "localNormalizeDesc": "Lokale Helligkeitsnormalisierung statt Clarity/Structure",
-      "localNormalizeNote": "Experimentelle GPU-Annäherung an G’MIC Normalize Local, nicht der Originalalgorithmus.",
+      "localNormalizeDesc": "Schattenzeichnung hervorholen und Helligkeit lokal ausgleichen",
+      "localNormalizeNote": "Gleicht die Helligkeit lokal aus und schützt dabei Lichter und Farben. Mehr Stärke erzeugt einen kräftigeren HDR-Look. Die Glättung steuert Übergänge zwischen Bildbereichen.",
       "pipelineOrder": "Reihenfolge: Local Normalize → Fractal Feedback → Prism → Kaleidoskop. Jedes Modul ist separat abschaltbar.",
       "amount": "Stärke",
       "iterations": "Echo-Ebenen",
@@ -999,7 +999,7 @@
       "feather": "Weicher Übergang",
       "blur": "Überlagerungsunschärfe",
       "radius": "Umgebungsradius",
-      "smoothing": "Normalisierungs-Glättung",
+      "smoothing": "Übergangsglättung",
       "luminanceBlendHint": "Aus: das ganze Bild bearbeiten. Bei 100 % Stärke ersetzt der Effekt sein Eingangsbild vollständig."
     },
     "switcher": {

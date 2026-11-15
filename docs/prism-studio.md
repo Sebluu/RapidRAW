@@ -27,9 +27,9 @@ unreleased upstream main. Main and the contribution PR branches stay separate.
   input to this stage, not previous frames of a temporal feedback simulation.
 - **Prism & Light:** RGB dispersion or geometric refraction, direction,
   separation, strength and optional blur.
-- **Local Normalize · Experimental:** a nine-sample neighborhood approximation
-  that changes local luminance while retaining RGB ratios. It is not a port of
-  G'MIC's `normalize_local`; compare its usefulness with Clarity and Structure.
+- **Local Normalize · Experimental:** locally balances brightness and contrast to
+  reveal shadow detail while protecting highlights and linear RGB ratios.
+  It replaces the previous nine-sample normalization toward middle gray.
 
 One instance of each type is supported. Effects can be independently hidden,
 removed and saved; their order is fixed rather than freely reorderable.
@@ -60,6 +60,37 @@ existing compute encoder and texture pool. Each pass samples the previous pass's
 output. Sampling cost therefore adds across effects instead of multiplying.
 Alpha is preserved. Pixel radii and prism separation scale with the shorter
 image side (1080px reference), matching preview and export composition.
+
+### Local Normalize
+
+The reference is G'MIC's [waterfall example](https://gmic.eu/gallery/filtering.html)
+(`normalize_local 8,10`) and its
+[local normalization command](https://gmic.eu/reference/normalize_local.html),
+by David Tschumperlé. This is a separate GPU implementation of the local-range
+approach, not a pixel-identical G'MIC port.
+
+The filter computes perceptual luminance from linear RGB, using the source's
+RAW/sRGB encoding. Separable minimum/maximum filters estimate the neighborhood
+range; smoothed bounds and a local average determine a contrast stretch without
+forcing regions toward a fixed brightness. The statistics map is limited to a
+1024px long side, then sampled smoothly when correcting the original pixels.
+Two repeated box blurs approximate Gaussian smoothing using the existing GPU
+encoder and texture pool. Full-resolution detail is retained in the source.
+
+- **Amount** blends the local correction; new effects start at 50%. Try 70–100%
+  for a stronger HDR-like look. Zero strength and hidden effects bypass the stage.
+- **Neighborhood radius** sets the detail scale, in pixels at a 1080px short side.
+- **Transition smoothness** controls spatial smoothing of the local bounds and
+  average. It no longer acts as an extra strength reduction.
+
+Low-contrast areas fade out of normalization to avoid stretching quantization
+noise. Flat fields retain their exposure. Highlight correction fades toward
+white; linear gain is bounded to four stops in either direction and cannot push
+an in-gamut channel beyond white. Black and scene-linear luminance above white
+are retained, including HDR values for RapidRAW's subsequent tone mapper.
+The correction cannot reconstruct clipped channels or details absent from the
+source, and stronger settings can still reveal noise or halos. Existing saved
+slider values remain valid, but intentionally render with the new algorithm.
 
 Only visible, nonzero effects run. Their pipelines are lazy and excluded from
 startup warming. Disabled studio effects allocate no studio textures or guided

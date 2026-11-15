@@ -980,8 +980,8 @@
       "fractalFeedback": "Fractal Feedback",
       "fractalFeedbackDesc": "Recursive echoes blended into the original photo",
       "localNormalize": "Local Normalize · Experimental",
-      "localNormalizeDesc": "Local luminance normalization, not Clarity or Structure",
-      "localNormalizeNote": "Experimental GPU approximation inspired by G’MIC Normalize Local, not the original algorithm.",
+      "localNormalizeDesc": "Recover shadow detail and balance local brightness",
+      "localNormalizeNote": "Balances local brightness while protecting highlights and color. Increase Amount for a stronger HDR look. Smoothness controls transitions between regions.",
       "pipelineOrder": "Processing order: Local Normalize → Fractal Feedback → Prism → Kaleidoscope. Each module can be hidden separately.",
       "amount": "Amount",
       "iterations": "Echo layers",
@@ -999,7 +999,7 @@
       "feather": "Soft transition",
       "blur": "Overlay blur",
       "radius": "Neighborhood radius",
-      "smoothing": "Normalization smoothing",
+      "smoothing": "Transition smoothness",
       "luminanceBlendHint": "Off: transform the whole image. At 100% amount, the effect fully replaces its input."
     },
     "switcher": {

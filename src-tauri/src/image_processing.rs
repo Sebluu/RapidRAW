@@ -1695,7 +1695,7 @@ fn parse_local_normalize(value: &Value) -> LocalNormalizeGpu {
     };
     LocalNormalizeGpu {
         enabled: 1,
-        amount: studio_number(s, "amount", 25.0, 0.0, 100.0) / 100.0,
+        amount: studio_number(s, "amount", 50.0, 0.0, 100.0) / 100.0,
         radius: studio_number(s, "radius", 16.0, 2.0, 64.0),
         smoothing: studio_number(s, "smoothing", 50.0, 0.0, 100.0) / 100.0,
     }

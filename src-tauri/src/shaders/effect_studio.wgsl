@@ -122,32 +122,85 @@ fn studio_prism(
     return mix(source, prism_color, effect.amount * coverage);
 }
 
-fn studio_local_normalize(
-    uv: vec2<f32>, dims: vec2<f32>, source: vec3<f32>, effect: LocalNormalizeGpu
-) -> vec3<f32> {
-    if (effect.amount < 0.0001) { return source; }
-    let limit = vec2<i32>(dims) - vec2<i32>(1);
-    let center = vec2<i32>(clamp(uv * dims, vec2<f32>(0.0), dims - vec2<f32>(1.0)));
-    let radius = i32(max(effect.radius * min(dims.x, dims.y) / 1080.0, 1.0));
-    var mean = 0.0;
-    var second = 0.0;
-    for (var y = -1; y <= 1; y += 1) {
-        for (var x = -1; x <= 1; x += 1) {
-            let position = clamp(center + vec2<i32>(x, y) * radius, vec2<i32>(0), limit);
-            let value = studio_luma(textureLoad(t0, position, 0).rgb);
-            mean += value;
-            second += value * value;
-        }
-    }
-    mean /= 9.0;
-    let sigma = sqrt(max(0.0, second / 9.0 - mean * mean));
-    let original = studio_luma(source);
-    let target_luma = clamp(0.5 + (original - mean) * 0.16 / max(sigma, 0.04), 0.0, 1.0);
-    let strength = effect.amount * (1.0 - effect.smoothing * 0.45);
-    let adjusted = mix(original, target_luma, strength);
-    return source * (adjusted / max(original, 0.001));
+fn studio_decode(value: vec3<f32>) -> vec3<f32> {
+    let c = max(value, vec3<f32>(0.0));
+    return select(pow((c + 0.055) / 1.055, vec3<f32>(2.4)), c / 12.92, c <= vec3<f32>(0.04045));
 }
 
+fn studio_encode(value: vec3<f32>) -> vec3<f32> {
+    let c = max(value, vec3<f32>(0.0));
+    return select(1.055 * pow(c, vec3<f32>(1.0 / 2.4)) - 0.055, c * 12.92, c <= vec3<f32>(0.0031308));
+}
+
+fn studio_linear(source: vec3<f32>) -> vec3<f32> {
+    if (params.grid.flags != 0u) { return max(source, vec3<f32>(0.0)); }
+    return studio_decode(source);
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn studio_normalize_down(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (outside(id)) { return; }
+    let start = id.xy * params.grid.src / params.grid.dst;
+    let end = min(max((id.xy + 1u) * params.grid.src / params.grid.dst, start + 1u), params.grid.src);
+    var sum = 0.0;
+    for (var y = start.y; y < end.y; y += 1u) {
+        for (var x = start.x; x < end.x; x += 1u) {
+            let linear = studio_linear(textureLoad(t0, vec2<u32>(x, y), 0).rgb);
+            sum += min(studio_encode(vec3<f32>(studio_luma(linear))).x, 1.0);
+        }
+    }
+    let value = sum / f32((end.x - start.x) * (end.y - start.y));
+    textureStore(out_f32, id.xy, vec4<f32>(value, value, 0.0, 0.0));
+}
+
+fn studio_normalize_range(id: vec3<u32>, direction: vec2<i32>) {
+    if (outside(id)) { return; }
+    let last = vec2<i32>(params.grid.dst) - 1;
+    let radius = i32(params.grid.radius);
+    var low = 1.0;
+    var high = 0.0;
+    for (var k = -radius; k <= radius; k += 1) {
+        let point = clamp(vec2<i32>(id.xy) + direction * k, vec2<i32>(0), last);
+        let value = textureLoad(t0, point, 0).xy;
+        low = min(low, value.x);
+        high = max(high, value.y);
+    }
+    textureStore(out_f32, id.xy, vec4<f32>(low, high, 0.0, 0.0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn studio_normalize_range_h(@builtin(global_invocation_id) id: vec3<u32>) {
+    studio_normalize_range(id, vec2<i32>(1, 0));
+}
+
+@compute @workgroup_size(8, 8, 1)
+fn studio_normalize_range_v(@builtin(global_invocation_id) id: vec3<u32>) {
+    studio_normalize_range(id, vec2<i32>(0, 1));
+}
+
+fn studio_local_normalize(uv: vec2<f32>, source: vec3<f32>, effect: LocalNormalizeGpu) -> vec3<f32> {
+    if (effect.amount < 0.0001) { return source; }
+    let linear = studio_linear(source);
+    let luma = studio_luma(linear);
+    if (luma <= 0.000001 || luma >= 1.0) { return source; }
+    let range = tap_sample(t1, tap_uv(uv, textureDimensions(t1))).xy;
+    let mean = tap_sample(t2, tap_uv(uv, textureDimensions(t2))).x;
+    let span = max(range.y - range.x, 0.0);
+    let strength = effect.amount * smoothstep(0.01, 0.08, span);
+    if (strength <= 0.0) { return source; }
+    let original = studio_encode(vec3<f32>(luma)).x;
+    let low = clamp(9.0 * range.x - 8.0 * mean, 0.0, 1.0);
+    let high = clamp(9.0 * range.y - 8.0 * mean, low, 1.0);
+    let normalized = clamp(low + (original - range.x) * (high - low) / max(span, 0.0001), 0.0, 1.0);
+    let highlight_weight = 1.0 - smoothstep(0.65, 1.0, original);
+    let mapped = mix(original, normalized, strength * highlight_weight * highlight_weight);
+    let mapped_luma = studio_decode(vec3<f32>(mapped)).x;
+    var gain = clamp(mapped_luma / luma, 1.0 / 16.0, 16.0);
+    gain = min(gain, max(1.0, 1.0 / max(max(linear.r, linear.g), linear.b)));
+    let adjusted = linear * gain;
+    if (params.grid.flags != 0u) { return adjusted; }
+    return studio_encode(adjusted);
+}
 
 fn studio_write(id: vec3<u32>, kind: u32) {
     if (outside(id)) { return; }
@@ -155,9 +208,7 @@ fn studio_write(id: vec3<u32>, kind: u32) {
     let uv = (vec2<f32>(id.xy) + 0.5) / dims;
     let source = textureLoad(t0, id.xy, 0);
     var color = source.rgb;
-    if (kind == 0u) {
-        color = studio_local_normalize(uv, dims, color, params.local_normalize);
-    } else if (kind == 1u) {
+    if (kind == 1u) {
         color = studio_feedback(uv, dims, color, params.feedback);
     } else {
         color = studio_prism(uv, dims, color, params.prism);
@@ -165,7 +216,13 @@ fn studio_write(id: vec3<u32>, kind: u32) {
     textureStore(out_f16, id.xy, vec4<f32>(color, source.a));
 }
 @compute @workgroup_size(8, 8, 1)
-fn studio_normalize(@builtin(global_invocation_id) id: vec3<u32>) { studio_write(id, 0u); }
+fn studio_normalize(@builtin(global_invocation_id) id: vec3<u32>) {
+    if (outside(id)) { return; }
+    let uv = (vec2<f32>(id.xy) + 0.5) / vec2<f32>(params.grid.dst);
+    let source = textureLoad(t0, id.xy, 0);
+    let color = studio_local_normalize(uv, source.rgb, params.local_normalize);
+    textureStore(out_f16, id.xy, vec4<f32>(color, source.a));
+}
 @compute @workgroup_size(8, 8, 1)
 fn studio_feedback_pass(@builtin(global_invocation_id) id: vec3<u32>) { studio_write(id, 1u); }
 @compute @workgroup_size(8, 8, 1)

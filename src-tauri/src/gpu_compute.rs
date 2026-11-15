@@ -114,6 +114,9 @@ impl Group {
             Group::Studio => (
                 include_str!("shaders/effect_studio.wgsl"),
                 &[
+                    "studio_normalize_down",
+                    "studio_normalize_range_h",
+                    "studio_normalize_range_v",
                     "studio_normalize",
                     "studio_feedback_pass",
                     "studio_prism_pass",
