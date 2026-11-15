@@ -1,0 +1,79 @@
+name: Color Harmonizer review validation
+on:
+  push:
+    branches: [review/color-harmonizer-main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: color-harmonizer-review-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/test-color-harmony.mjs
+      - run: npm run typecheck
+      - name: New-file ESLint
+        run: npx eslint src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/HarmonyRulePicker.tsx src/utils/colorHarmony.ts scripts/test-color-harmony.mjs
+      - name: Whole-project ESLint regression comparison
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/upstream" 89ed2db5ee452f522f6952d3b1cc4821c5c082c3
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/upstream/node_modules"
+          node .github/review-tools/compare-lint.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/upstream"
+      - run: npm run build
+      - run: npm run i18n:runtime-check
+      - name: Feature formatting
+        run: npx prettier --check docs/color-harmonizer.md scripts/test-color-harmony.mjs src/components/adjustments/AdjustmentSubSection.tsx src/components/adjustments/Color.tsx src/components/adjustments/ColorHarmonizer.tsx src/components/adjustments/HarmonyRulePicker.tsx src/components/panel/right/ControlsPanel.tsx src/components/panel/right/MasksPanel.tsx src/types/invokes.ts src/utils/adjustments.ts src/utils/colorHarmony.ts src/utils/defaultAdjustments.json src/i18n/locales/en.json src/i18n/locales/de.json
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/rapidraw-review-target
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> /tmp/rapidraw-review-target
+          cache-on-failure: true
+      - name: Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config patchelf libgphoto2-dev
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo check --locked --manifest-path src-tauri/Cargo.toml
+      - name: Clippy regression comparison including all features
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/upstream" 89ed2db5ee452f522f6952d3b1cc4821c5c082c3
+          python .github/review-tools/compare-clippy.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/upstream"
+  shader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/shader-validation
+      - run: cargo fmt --manifest-path tools/shader-validation/Cargo.toml -- --check
+      - run: cargo run --locked --manifest-path tools/shader-validation/Cargo.toml
