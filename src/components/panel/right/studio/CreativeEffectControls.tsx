@@ -105,6 +105,7 @@ export default function CreativeEffectControls({ effect, onChange }: Props) {
       {effect.type !== 'localNormalize' && (
         <div className="border-t border-border pt-3">
           <Switch
+            id={`studio-luminance-${effect.id}`}
             label={l('luminanceBlend')}
             checked={effect.settings.luminanceEnabled}
             onChange={(enabled) => update('luminanceEnabled', enabled)}
