@@ -4523,7 +4523,7 @@ fn compute_white_balance_sample(
 }
 
 #[tauri::command]
-pub fn sample_color_harmony_histogram(
+pub async fn sample_color_harmony_histogram(
     image_path: String,
     state: tauri::State<'_, AppState>,
 ) -> Result<Vec<f32>, String> {
@@ -4550,6 +4550,12 @@ pub fn sample_color_harmony_histogram(
         return Err("Preview for requested image is not ready yet".into());
     }
     let image = preview.preview.image;
+    tokio::task::spawn_blocking(move || color_harmony_histogram(&image, loaded.is_raw))
+        .await
+        .map_err(|error| error.to_string())?
+}
+
+fn color_harmony_histogram(image: &DynamicImage, is_raw: bool) -> Result<Vec<f32>, String> {
     let (width, height) = image.dimensions();
     if width == 0 || height == 0 {
         return Err("Empty preview".into());
@@ -4559,7 +4565,7 @@ pub fn sample_color_harmony_histogram(
     let mut histogram = vec![0.0_f32; 72];
     for y in (0..height).step_by(stride as usize) {
         for x in (0..width).step_by(stride as usize) {
-            let Some(rgb) = read_linear_rgb(&image, x, y, loaded.is_raw) else {
+            let Some(rgb) = read_linear_rgb(image, x, y, is_raw) else {
                 continue;
             };
             let r = rgb[0].max(0.0);

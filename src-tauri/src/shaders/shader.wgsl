@@ -413,21 +413,22 @@ fn apply_color_harmonizer(color: vec3<f32>, h: ColorHarmony) -> vec3<f32> {
     let hue = fract(atan2(lab.z, lab.y) / 6.28318530718 + 1.0);
     let sigma = max(0.001, h.params.y * 0.5 / f32(count));
     let inv2sigma = 0.5 / (sigma * sigma);
-    var winning_weight = 0.0;
+    var nearest_distance = 1.0;
     var winning_delta = 0.0;
     var nearest = 0u;
 
     for (var i = 0u; i < count; i = i + 1u) {
         let difference = h.nodes[i] - hue;
         let wrapped = difference - floor(difference + 0.5);
-        let weight = exp(-(wrapped * wrapped) * inv2sigma);
-        if (weight > winning_weight) {
-            winning_weight = weight;
+        let distance = abs(wrapped);
+        if (distance < nearest_distance) {
+            nearest_distance = distance;
             winning_delta = wrapped;
             nearest = i;
         }
     }
 
+    let winning_weight = exp(-(winning_delta * winning_delta) * inv2sigma);
     let np = h.params.z;
     let chroma_cutoff = np * np * np * 0.03;
     let protection = chroma / (chroma + chroma_cutoff + 0.00001);

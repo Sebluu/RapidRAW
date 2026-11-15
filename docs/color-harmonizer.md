@@ -12,7 +12,7 @@ per-color saturation.
 
 It complements RapidRAW's existing Color Mixer and Color Grading tools:
 instead of correcting one fixed hue band or applying a global tint, it can
-shape the *relationship* between colors in a photograph. The initial state
+shape the _relationship_ between colors in a photograph. The initial state
 is intentionally neutral, so simply opening the adjustment does not change
 an image.
 
@@ -140,3 +140,14 @@ and the separate experimental effects branch.
 ## v1.6.9 compatibility branch
 
 `test/color-harmonizer-v1.6.9` is based on the official upstream v1.6.9 release. The Color Harmonizer is integrated into the current frontend, GPU and Rust pipeline without changing the existing contribution PR.
+
+### Performance follow-up (2026-11-15)
+
+The v1.6.9 test branch already includes the release's preview and GPU caches.
+Histogram sampling now runs in a blocking worker instead of Tauri's calling
+thread. The shader selects the nearest hue before computing its Gaussian,
+reducing four-node palettes from four exponentials to one per affected pixel.
+The neutral adjustment still leaves the GPU feature bit off. These changes do
+not establish a measured speedup on any particular laptop; compare equivalent
+build modes as described in `docs/development-testing.md` on the combined branch.
+The existing contribution PR and `pr/color-harmonizer` remain unchanged.

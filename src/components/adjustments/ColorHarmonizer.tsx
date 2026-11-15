@@ -30,9 +30,7 @@ const WHEEL = 240;
 const CENTER = WHEEL / 2;
 const RAD = Math.PI / 180;
 
-// Each image's source hue distribution is independent of the harmonizer's
-// palette settings. Cache it per image for this editing session, shared by
-// global and mask panels. A small bounded LRU avoids retaining all photos.
+// Source histograms are shared by global and mask panels.
 const HISTOGRAM_CACHE_LIMIT = 48;
 const hueHistogramCache = new Map<string, number[]>();
 const pendingHueHistograms = new Map<string, Promise<number[]>>();
@@ -59,8 +57,7 @@ function requestHueHistogram(path: string): Promise<number[]> {
         throw new Error('Invalid color harmony histogram returned by backend');
       }
 
-      // A superseded in-flight request may finish late. Its caller may use
-      // the result, but must not move a no-longer-requested image into the LRU.
+      // Evicted requests must not repopulate the LRU.
       if (pendingHueHistograms.get(path) === request) {
         hueHistogramCache.delete(path);
         hueHistogramCache.set(path, bins);
@@ -76,9 +73,7 @@ function requestHueHistogram(path: string): Promise<number[]> {
       if (pendingHueHistograms.get(path) === request) pendingHueHistograms.delete(path);
     });
   pendingHueHistograms.set(path, request);
-  // Never retain more than 48 promises, even during rapid folder navigation.
-  // Evicted requests still settle for their original callers; they just won't
-  // be cached when they resolve.
+
   while (pendingHueHistograms.size > HISTOGRAM_CACHE_LIMIT) {
     const oldestPath = pendingHueHistograms.keys().next().value;
     if (oldestPath === undefined) break;
@@ -114,8 +109,6 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
   const [sampling, setSampling] = useState(false);
 
   useEffect(() => {
-    // Never trigger image analysis when the subsection is collapsed. Reopening
-    // or revisiting an analyzed photo reuses the completed result immediately.
     if (!selectedPath || !isOpen) {
       setHistogram([]);
       setSampling(false);
@@ -129,8 +122,7 @@ export default function ColorHarmonizer({ adjustments, setAdjustments, onDragSta
       return;
     }
 
-    // Image selection may precede its Rust preview. Share in-flight analysis
-    // between panels and retry only while this image's subsection is open.
+    // Selection can precede preview preparation.
     setHistogram([]);
     setSampling(true);
     let cancelled = false;
