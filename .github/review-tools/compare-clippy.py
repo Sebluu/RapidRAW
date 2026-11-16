@@ -6,6 +6,8 @@ import sys
 
 
 def inspect(directory):
+    # Force the workspace crate to be checked when target artifacts span worktrees.
+    (pathlib.Path(directory) / "src-tauri/src/lib.rs").touch()
     result = subprocess.run(
         ['cargo', 'clippy', '--locked', '--manifest-path', 'src-tauri/Cargo.toml',
          '--all-targets', '--all-features', '--message-format=json'],
