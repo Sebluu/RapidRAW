@@ -56,7 +56,7 @@ Feedback's result instead of replacing it with samples from the original photo.
 **Local Normalize → Fractal Feedback → Prism → Kaleidoscope → standard Adjustments
 (including Color Harmonizer)**.
 
-The first three effects use separate half-float GPU passes through RapidRAW's
+All four effects use separate half-float GPU passes through RapidRAW's
 existing compute encoder and texture pool. Each pass samples the previous pass's
 output. Sampling cost therefore adds across effects instead of multiplying.
 Alpha is preserved. Pixel radii and prism separation scale with the shorter
@@ -97,13 +97,15 @@ Only visible, nonzero effects run. Their pipelines are lazy and excluded from
 startup warming. Disabled studio effects allocate no studio textures or guided
 maps. A single cached result is keyed by source identity and effect uniforms;
 ordinary adjustment changes reuse it. Furka's guided coefficients, tone-base, haze and airlight maps are rebuilt from the
-processed source when the studio changes. Disabling all three clears the cached
+processed source when the studio changes. Disabling all four clears the cached
 entry. Active effects require intermediate GPU memory, especially for large
 exports; the shared texture pool retains memory under its existing limits.
 
-Kaleidoscope remains specialized in the main shader. It remaps the processed
-source before standard Adjustments; source-space masks and neighborhood tools
-are not separate post-kaleidoscope image passes.
+Kaleidoscope now transforms the source in a cached GPU stage before Furka builds
+its neighborhood maps. Noise reduction, sharpening and tone tools therefore see
+the transformed image; masks remain in output image coordinates. Geometry no
+longer remaps only the main shader's center pixel. The colored edge vignette is
+part of this source stage and follows subsequent tone and color adjustments.
 
 ## Validation
 

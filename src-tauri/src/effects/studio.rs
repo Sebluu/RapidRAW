@@ -2,7 +2,9 @@ use crate::render::gpu::compute::{
     Bind, ComputeEncoder, Grid, Group, IMAGE_FORMAT, Out, Slot, Tex,
 };
 use crate::render::gpu::context::GpuContext;
-use crate::render::uniforms::{FractalFeedbackGpu, GlobalAdjustments, LocalNormalizeGpu, PrismGpu};
+use crate::render::uniforms::{
+    FractalFeedbackGpu, GlobalAdjustments, KaleidoscopeGpu, LocalNormalizeGpu, PrismGpu,
+};
 
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -11,6 +13,7 @@ pub struct Params {
     feedback: FractalFeedbackGpu,
     prism: PrismGpu,
     local_normalize: LocalNormalizeGpu,
+    kaleidoscope: KaleidoscopeGpu,
 }
 
 impl Params {
@@ -23,6 +26,7 @@ impl Params {
             feedback: adjustments.feedback,
             prism: adjustments.prism,
             local_normalize: adjustments.local_normalize,
+            kaleidoscope: adjustments.kaleidoscope,
         };
         params
             .stages()
@@ -31,7 +35,7 @@ impl Params {
             .then_some(params)
     }
 
-    fn stages(&self) -> [(&'static str, bool); 3] {
+    fn stages(&self) -> [(&'static str, bool); 4] {
         [
             (
                 "studio_normalize",
@@ -45,6 +49,7 @@ impl Params {
                 "studio_prism_pass",
                 self.prism.enabled == 1 && self.prism.amount > 0.0,
             ),
+            ("studio_kaleidoscope_pass", self.kaleidoscope.mode != 0),
         ]
     }
 

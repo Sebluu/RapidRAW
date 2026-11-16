@@ -120,6 +120,7 @@ impl Group {
                     "studio_normalize",
                     "studio_feedback_pass",
                     "studio_prism_pass",
+                    "studio_kaleidoscope_pass",
                 ],
             ),
             Group::Light => (
