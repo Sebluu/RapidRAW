@@ -416,7 +416,6 @@ const F_CA: u32 = 512u;
 const F_AGX: u32 = 1024u;
 const F_MONOCHROME: u32 = 2048u;
 const F_COLOR_HARMONY: u32 = 4096u;
-const F_KALEIDOSCOPE: u32 = 8192u;
 
 fn has_feature(f: u32) -> bool {
     return (FEATURES & f) != 0u;
@@ -2144,140 +2143,6 @@ fn apply_halation(color: vec3<f32>, energy: f32, amount: f32) -> vec3<f32> {
     return contrast_reduced + tint * max(energy, 0.0) * amount * 2.5;
 }
 
-// Work in image-space and preserve aspect ratio in every preview resolution.
-fn kaleidoscope_map(pixel: vec2<u32>, size: vec2<f32>, k: KaleidoscopeGpu) -> vec3<f32> {
-    let center = vec2<f32>(k.center_x, k.center_y);
-    let aspect = size / min(size.x, size.y);
-    let cosine = cos(k.rotation);
-    let sine = sin(k.rotation);
-    let uv = (vec2<f32>(pixel) + 0.5) / size;
-    let relative = (uv - vec2<f32>(0.5)) * aspect;
-    var p = vec2<f32>(
-        relative.x * cosine + relative.y * sine,
-        -relative.x * sine + relative.y * cosine
-    );
-    var edge_distance = 1.0;
-    if (k.mode == 1u || k.mode == 4u || k.mode == 5u) {
-        var radius = length(p);
-        var theta = atan2(p.y, p.x);
-        let wedge = 6.28318530718 / f32(max(k.segments, 2u));
-        if (k.mode == 4u) {
-            theta -= k.twist * log(1.0 + radius * 4.0);
-        }
-        let phase = abs(fract(theta / wedge + 0.5) - 0.5);
-        edge_distance = min(phase, 0.5 - phase) * 2.0;
-        let folded = phase * wedge;
-        if (k.mode == 5u) {
-            for (var d = 1u; d < 6u; d += 1u) {
-                if (d >= k.depth) { break; }
-                radius = abs(fract(radius * 2.0) * 2.0 - 1.0);
-            }
-        }
-        p = radius * vec2<f32>(cos(folded), sin(folded));
-    } else if (k.mode == 2u) {
-        if (k.axis == 0u || k.axis == 2u) { p.y = abs(p.y); }
-        if (k.axis == 1u || k.axis == 2u) { p.x = abs(p.x); }
-        if (k.axis == 3u) {
-            p = vec2<f32>(max(p.x, p.y), min(p.x, p.y));
-        }
-        edge_distance = min(abs(p.x), abs(p.y)) * 2.0;
-    } else if (k.mode == 3u) {
-        let tiles = f32(max(k.grid, 2u));
-        let tiled = abs(p / aspect) * tiles;
-        let cell = floor(tiled);
-        var sub = fract(tiled);
-        if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
-        if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
-        edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
-        return vec3<f32>(
-            clamp(center + sub * (0.5 / max(k.zoom, 0.25)), vec2<f32>(0.0), vec2<f32>(1.0)),
-            edge_distance
-        );
-
-    } else if (k.mode == 6u) {
-        let density = 3.0 / max(k.mirror_size, 0.25);
-        let q = p * density;
-        if (k.polygon_sides == 3u) {
-            var v = 1.15470053838 * q.y;
-            var u = q.x - 0.5 * v;
-            let tile = round(vec2<f32>((2.0 * u + v) / 3.0, (u + 2.0 * v) / 3.0));
-            u -= 2.0 * tile.x - tile.y;
-            v -= 2.0 * tile.y - tile.x;
-            for (var i = 0u; i < 6u; i += 1u) {
-                if (u < 0.0) {
-                    let previous_u = u;
-                    u = -previous_u;
-                    v += previous_u;
-                } else if (v < 0.0) {
-                    let previous_v = v;
-                    v = -previous_v;
-                    u += previous_v;
-                } else if (u + v > 1.0) {
-                    let previous_u = u;
-                    u = 1.0 - v;
-                    v = 1.0 - previous_u;
-                } else {
-                    break;
-                }
-            }
-            edge_distance = 3.0 * min(min(u, v), max(0.0, 1.0 - u - v));
-            p = vec2<f32>(u + 0.5 * v, 0.86602540378 * v) / density;
-        } else if (k.polygon_sides == 4u) {
-            let tiled = abs(q);
-            let cell = floor(tiled);
-            var sub = fract(tiled);
-            if (i32(cell.x) % 2 != 0) { sub.x = 1.0 - sub.x; }
-            if (i32(cell.y) % 2 != 0) { sub.y = 1.0 - sub.y; }
-            edge_distance = min(min(sub.x, 1.0 - sub.x), min(sub.y, 1.0 - sub.y)) * 2.0;
-            p = sub / density;
-        } else {
-            let axial_v = q.y * 1.15470053838;
-            let axial_u = q.x - 0.5 * axial_v;
-            let cube = vec3<f32>(axial_u, -axial_u - axial_v, axial_v);
-            var rounded = round(cube);
-            let difference = abs(rounded - cube);
-            if (difference.x > difference.y && difference.x > difference.z) {
-                rounded.x = -rounded.y - rounded.z;
-            } else if (difference.y > difference.z) {
-                rounded.y = -rounded.x - rounded.z;
-            } else {
-                rounded.z = -rounded.x - rounded.y;
-            }
-            let cell_center = vec2<f32>(rounded.x + 0.5 * rounded.z, 0.86602540378 * rounded.z);
-            let local = q - cell_center;
-            let wedge = 6.28318530718 / f32(k.polygon_sides);
-            let angle = atan2(local.y, local.x);
-            let phase = abs(fract(angle / wedge + 0.5) - 0.5);
-            edge_distance = min(phase, 0.5 - phase) * 2.0;
-            p = length(local) * vec2<f32>(cos(phase * wedge), sin(phase * wedge)) / density;
-        }
-    }
-    let restored = vec2<f32>(
-        p.x * cosine - p.y * sine,
-        p.x * sine + p.y * cosine
-    );
-    return vec3<f32>(
-        clamp(center + restored / (aspect * max(k.zoom, 0.25)), vec2<f32>(0.0), vec2<f32>(1.0)),
-        edge_distance
-    );
-}
-
-fn kaleidoscope_bilinear(uv: vec2<f32>, size: vec2<f32>) -> vec4<f32> {
-    let pos = uv * size - 0.5;
-    let whole = floor(pos);
-    let frac = clamp(pos - whole, vec2<f32>(0.0), vec2<f32>(1.0));
-    let limit = vec2<i32>(size) - 1;
-    let p00 = clamp(vec2<i32>(whole), vec2<i32>(0), limit);
-    let p10 = clamp(vec2<i32>(whole) + vec2<i32>(1, 0), vec2<i32>(0), limit);
-    let p01 = clamp(vec2<i32>(whole) + vec2<i32>(0, 1), vec2<i32>(0), limit);
-    let p11 = clamp(vec2<i32>(whole) + vec2<i32>(1, 1), vec2<i32>(0), limit);
-    return mix(
-        mix(textureLoad(input_texture, p00, 0), textureLoad(input_texture, p10, 0), frac.x),
-        mix(textureLoad(input_texture, p01, 0), textureLoad(input_texture, p11, 0), frac.x),
-        frac.y
-    );
-}
-
 @compute @workgroup_size(8, 8, 1)
 fn main(
     @builtin(global_invocation_id) id: vec3<u32>,
@@ -2305,44 +2170,17 @@ fn main(
     let out_dims = vec2<u32>(textureDimensions(output_texture));
     if (id.x >= out_dims.x || id.y >= out_dims.y) { return; }
 
-    let output_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
-    var absolute_coord = output_coord;
-    var soft_source = vec4<f32>(0.0);
-    var edge_strength = 0.0;
-    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
-        let k = adjustments.global.kaleidoscope;
-        let mapped = kaleidoscope_map(output_coord, full_dims, k);
-        absolute_coord = min(vec2<u32>(mapped.xy * full_dims),
-            vec2<u32>(full_dims) - vec2<u32>(1u));
-        soft_source = kaleidoscope_bilinear(mapped.xy, full_dims);
-        edge_strength = 1.0 - smoothstep(0.0, max(0.001, k.edge_width), mapped.z);
-        if (k.edge_blur > 0.0 && edge_strength > 0.001) {
-            let radius = k.edge_blur * edge_strength * 16.0;
-            let dx = vec2<f32>(radius / full_dims.x, 0.0);
-            let dy = vec2<f32>(0.0, radius / full_dims.y);
-            let blurred = (
-                soft_source * 4.0
-                + kaleidoscope_bilinear(mapped.xy - dx, full_dims)
-                + kaleidoscope_bilinear(mapped.xy + dx, full_dims)
-                + kaleidoscope_bilinear(mapped.xy - dy, full_dims)
-                + kaleidoscope_bilinear(mapped.xy + dy, full_dims)
-            ) * 0.125;
-            soft_source = mix(soft_source, blurred, edge_strength * k.edge_blur);
-        }
-    }
+    let absolute_coord = id.xy + vec2<u32>(adjustments.tile_offset_x, adjustments.tile_offset_y);
     let absolute_coord_i = vec2<i32>(absolute_coord);
 
     let ca_rc = adjustments.global.chromatic_aberration_red_cyan;
     let ca_by = adjustments.global.chromatic_aberration_blue_yellow;
-    var source_color = textureLoad(input_texture, absolute_coord, 0);
-    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
-        source_color = soft_source;
-    }
-    var color_from_texture = source_color.rgb;
-    let original_alpha = source_color.a;
+    var color_from_texture = textureLoad(input_texture, absolute_coord, 0).rgb;
     if (has_feature(F_CA) && (abs(ca_rc) > 0.000001 || abs(ca_by) > 0.000001)) {
         color_from_texture = apply_ca_correction(absolute_coord, ca_rc, ca_by);
     }
+    let original_alpha = textureLoad(input_texture, absolute_coord, 0).a;
+
     var initial_linear_rgb: vec3<f32>;
     let is_raw = adjustments.global.is_raw_image;
     if (is_raw == 0u) {
@@ -2656,12 +2494,6 @@ fn main(
         let luma = clamp(get_luma(final_rgb), 0.0005, 0.9995);
         let grained = luma / (luma + (1.0 - luma) * exp(-grain * adjustments.global.grain_amount));
         final_rgb += vec3<f32>(grained - luma);
-    }
-
-    if (has_feature(F_KALEIDOSCOPE) && adjustments.global.kaleidoscope.mode != 0u) {
-        let k = adjustments.global.kaleidoscope;
-        let influence = clamp(edge_strength * k.edge_vignette, 0.0, 1.0);
-        final_rgb = mix(final_rgb, k.edge_color.rgb, influence);
     }
 
     if (adjustments.global.show_clipping == 1u) {

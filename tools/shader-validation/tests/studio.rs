@@ -91,7 +91,7 @@ impl Gpu {
     fn dispatch(
         &self,
         entry: &str,
-        settings: &[u32; 36],
+        settings: &[u32; 56],
         inputs: &[&wgpu::Texture],
         output: &wgpu::Texture,
     ) {
@@ -209,7 +209,7 @@ impl Gpu {
         result
     }
 
-    fn render(&self, image: &[[f32; 4]], settings: &[u32; 36], entry: &str) -> Vec<[f32; 4]> {
+    fn render(&self, image: &[[f32; 4]], settings: &[u32; 56], entry: &str) -> Vec<[f32; 4]> {
         let size = (settings[0], settings[1]);
         let input = self.upload(image, size);
         let output = self.texture(size, wgpu::TextureFormat::Rgba16Float);
@@ -217,7 +217,7 @@ impl Gpu {
         self.read(&output)
     }
 
-    fn blur(&self, input: &wgpu::Texture, settings: &[u32; 36], radius: u32) -> wgpu::Texture {
+    fn blur(&self, input: &wgpu::Texture, settings: &[u32; 56], radius: u32) -> wgpu::Texture {
         if input.width() < 2 || input.height() < 2 {
             return input.clone();
         }
@@ -236,7 +236,7 @@ impl Gpu {
         current.unwrap()
     }
 
-    fn normalize(&self, image: &[[f32; 4]], settings: &[u32; 36]) -> Vec<[f32; 4]> {
+    fn normalize(&self, image: &[[f32; 4]], settings: &[u32; 56]) -> Vec<[f32; 4]> {
         let size = (settings[0], settings[1]);
         let scale = (1024.0 / size.0.max(size.1) as f32).min(1.0);
         let map_size = (
@@ -272,11 +272,11 @@ impl Gpu {
     }
 }
 
-fn settings() -> [u32; 36] {
-    let mut s = [0; 36];
+fn settings() -> [u32; 56] {
+    let mut s = [0; 56];
     s[0] = SIZE;
     s[1] = SIZE;
-    // Grid (32 bytes), Feedback (48), Prism (48), Local Normalize (16).
+    // Grid (32), Feedback (48), Prism (48), Local Normalize (16), Kaleidoscope (80).
     s[8] = 1;
     s[9] = 1;
     s[10] = 0.5f32.to_bits();
@@ -359,7 +359,7 @@ fn whole_image_masks_strength_and_stack() {
     assert!(chained.iter().flatten().all(|v| v.is_finite()));
 }
 
-fn normalize_settings(size: (u32, u32)) -> [u32; 36] {
+fn normalize_settings(size: (u32, u32)) -> [u32; 56] {
     let mut s = settings();
     s[0] = size.0;
     s[1] = size.1;
@@ -502,4 +502,37 @@ fn normalize_preview_and_export_use_the_same_spatial_scale() {
     }
     let mean = difference / (size.0 * size.1) as f32;
     assert!(mean < 0.02, "preview/export luminance drift: {mean}");
+}
+
+#[test]
+fn kaleidoscope_is_a_source_stage_and_preserves_alpha() {
+    let gpu = Gpu::new();
+    let input = image();
+    let mut s = settings();
+    let neutral = gpu.render(&input, &s, "studio_kaleidoscope_pass");
+    assert!(max_difference(&neutral, &input) < 0.002);
+    s[38] = 8;
+    s[39] = 4;
+    s[40] = 3;
+    s[41] = 3;
+    s[42] = 2.0f32.to_bits();
+    s[44] = 0.5f32.to_bits();
+    s[45] = 0.5f32.to_bits();
+    s[47] = 1.0f32.to_bits();
+    s[48] = 2.0f32.to_bits();
+    s[51] = 0.3f32.to_bits();
+    for mode in 1..=6 {
+        s[36] = mode;
+        let result = gpu.render(&input, &s, "studio_kaleidoscope_pass");
+        assert!(
+            max_difference(&result, &input) > 0.02,
+            "geometry mode {mode} must transform the source"
+        );
+        assert!(result.iter().flatten().all(|v| v.is_finite()));
+        assert!(result.iter().all(|p| p[3] == 0.625));
+    }
+    let feedback = gpu.render(&input, &s, "studio_feedback_pass");
+    let combined = gpu.render(&feedback, &s, "studio_kaleidoscope_pass");
+    let geometry_only = gpu.render(&input, &s, "studio_kaleidoscope_pass");
+    assert!(max_difference(&combined, &geometry_only) > 0.02);
 }

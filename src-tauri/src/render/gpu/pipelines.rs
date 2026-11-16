@@ -39,8 +39,6 @@ const F_AGX: u32 = 1024;
 const F_MONOCHROME: u32 = 2048;
 const F_COLOR_HARMONY: u32 = 4096;
 
-const F_KALEIDOSCOPE: u32 = 8192;
-
 pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
     let g = &adjustments.global;
     let masks = &adjustments.mask_adjustments[..(adjustments.mask_count as usize).min(MAX_MASKS)];
@@ -98,7 +96,6 @@ pub fn shader_features(adjustments: &AllAdjustments) -> u32 {
         F_COLOR_HARMONY,
         harmony_active(&g.color_harmony) || masks.iter().any(|m| harmony_active(&m.color_harmony)),
     );
-    set(F_KALEIDOSCOPE, g.kaleidoscope.mode != 0);
     features
 }
 

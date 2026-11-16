@@ -27,7 +27,7 @@ fn validate(name: &str, source: &str) {
             [0, 16, 32, 48, 52]
         );
     }
-    println!("{name}: shader validation and ColorHarmony layout passed");
+    println!("{name}: shader validation passed");
 }
 
 fn main() {
