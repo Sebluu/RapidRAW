@@ -215,7 +215,7 @@ pub async fn sample_curve_tone(
         let px = ((x * width as f32).floor() as u32).min(width - 1);
         let py = ((y * height as f32).floor() as u32).min(height - 1);
 
-        let mut render = EditorRender::prepare(
+        let render = EditorRender::prepare(
             &state,
             &loaded_image,
             &adjustments,
@@ -225,26 +225,22 @@ pub async fn sample_curve_tone(
             resolve_render_options_from_handle(&app_handle, loaded_image.is_raw),
             state.load_image_generation.load(Ordering::SeqCst),
         );
-        render.adjustments.curve_sample_mode = if channel == "luma" { 1 } else { 2 };
+        let mut request = render.request(
+            Some(crate::render::gpu::processor::Roi {
+                x: px,
+                y: py,
+                width: 1,
+                height: 1,
+            }),
+            false,
+        );
+        request.adjustments.curve_sample_mode = if channel == "luma" { 1 } else { 2 };
         let context = get_or_init_gpu_context(&state, &app_handle)?;
-        let pixel = process_and_get_dynamic_image(
-            &context,
-            &state,
-            &source,
-            render.request(
-                Some(crate::render::gpu::processor::Roi {
-                    x: px,
-                    y: py,
-                    width: 1,
-                    height: 1,
-                }),
-                false,
-            ),
-            "sample_curve_tone",
-        )?
-        .to_rgba8()
-        .get_pixel(0, 0)
-        .0;
+        let pixel =
+            process_and_get_dynamic_image(&context, &state, &source, request, "sample_curve_tone")?
+                .to_rgba8()
+                .get_pixel(0, 0)
+                .0;
         Ok(CurveToneSample {
             r: pixel[0],
             g: pixel[1],
