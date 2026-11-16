@@ -172,6 +172,7 @@ pub struct GpuProcessor {
     context: GpuContext,
     pipelines: Arc<GpuPipelines>,
     blur_params_buffer: wgpu::Buffer,
+    studio_cache: std::sync::Mutex<Option<(u64, Arc<GpuImageEntry>)>>,
     light_cache: std::sync::Mutex<
         Option<(
             crate::effects::light::LightJob,
@@ -416,6 +417,7 @@ impl GpuProcessor {
             pipelines,
             blur_params_buffer,
             light_cache: std::sync::Mutex::new(None),
+            studio_cache: std::sync::Mutex::new(None),
             high_precision_tile: std::sync::OnceLock::new(),
             tile_output_size: clamped_tile_size,
             adjustments_buffer,
@@ -1312,6 +1314,46 @@ impl GpuProcessor {
         })
     }
 
+    fn studio_image(
+        &self,
+        input: &GpuImageEntry,
+        adjustments: &AllAdjustments,
+    ) -> Result<Option<Arc<GpuImageEntry>>, String> {
+        let mut cache = self.studio_cache.lock().unwrap_or_else(|e| e.into_inner());
+        let Some(params) =
+            crate::effects::studio::Params::new((input.width, input.height), &adjustments.global)
+        else {
+            *cache = None;
+            return Ok(None);
+        };
+        let key = params.key(input.id);
+        if let Some((cached_key, image)) = cache.as_ref()
+            && *cached_key == key
+        {
+            return Ok(Some(Arc::clone(image)));
+        }
+        *cache = None;
+        let output = crate::effects::studio::render(&self.context, &input.texture_view, &params)?;
+        let guided =
+            self.build_guided_coeffs(&output.view, input.width, input.height, input.is_raw);
+        let image = Arc::new(GpuImageEntry {
+            id: NEXT_GPU_IMAGE_ID.fetch_add(1, Ordering::Relaxed),
+            texture: output.texture,
+            texture_view: output.view,
+            gf_coeffs_view: guided.coeffs,
+            tone_base_view: guided.tone_base,
+            haze_view: guided.haze,
+            airlight_view: guided.airlight,
+            is_raw: input.is_raw,
+            width: input.width,
+            height: input.height,
+            transform_key: input.transform_key,
+            source_identity: input.source_identity,
+        });
+        *cache = Some((key, Arc::clone(&image)));
+        Ok(Some(image))
+    }
+
     fn light_maps(
         &self,
         input: &GpuImageEntry,
@@ -1342,6 +1384,8 @@ impl GpuProcessor {
         output_to_display: bool,
         output_precision: RenderOutputPrecision,
     ) -> Result<(RenderedPixels, u32, u32, u32, u32), String> {
+        let studio = self.studio_image(input, &request.adjustments)?;
+        let input = studio.as_deref().unwrap_or(input);
         let input_texture_view = &input.texture_view;
         let gf_coeffs_view = &input.gf_coeffs_view;
         let tone_base_view = &input.tone_base_view;

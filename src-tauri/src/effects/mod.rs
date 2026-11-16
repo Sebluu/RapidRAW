@@ -4,3 +4,4 @@ pub mod light;
 pub mod maps;
 pub mod motion_blur;
 pub mod relight;
+pub mod studio;

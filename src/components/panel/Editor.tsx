@@ -203,6 +203,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const overlayRotation = useEditorStore((s) => s.overlayRotation);
   const isStraightenActive = useEditorStore((s) => s.isStraightenActive);
   const isWbPickerActive = useEditorStore((s) => s.isWbPickerActive);
+  const curvePickerChannel = useEditorStore((s) => s.curvePickerChannel);
   const isRelightPickerActive = useEditorStore((s) => s.isRelightPickerActive);
   const isMixerPickerActive = useEditorStore((s) => s.mixerPickerProperty !== null);
   const liveRotation = useEditorStore((s) => s.liveRotation);
@@ -926,6 +927,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
         activeSubMask?.type === Mask.Luminance ||
         activeSubMask?.parameters?.isInitialDraw)) ||
     isWbPickerActive ||
+    !!curvePickerChannel ||
     isRelightPickerActive ||
     isMixerPickerActive;
 
@@ -1054,6 +1056,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
       if ((e.target as HTMLElement).closest('[data-split-divider]')) return;
       wasPanningDisabledOnDown.current = isPanningDisabled;
       suppressContextMenuRef.current = false;
+      if (curvePickerChannel) return;
 
       const isCropHandle = isCropping && e.button === 0 && !!(e.target as HTMLElement).closest('[data-ord]');
       cropResizeStartRef.current = isCropHandle ? lastValidCropRef.current : null;
@@ -1137,7 +1140,7 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
 
       if (e.pointerType === 'mouse') e.currentTarget.setPointerCapture(e.pointerId);
     },
-    [isPanningDisabled, isBrushActive, isCropping, getEffectiveCrop],
+    [isPanningDisabled, isBrushActive, isCropping, getEffectiveCrop, curvePickerChannel],
   );
 
   useEffect(() => {
@@ -2607,7 +2610,9 @@ export default function Editor({ onBackToLibrary, onContextMenu, onImageSelect, 
   const isMaxZoom = transformScale >= maxScaleRef.current - 0.5;
 
   let cursorStyle = 'default';
-  if ((isShiftPressed && !isBrushActive && !isCropping) || straightenDragLine) {
+  if (curvePickerChannel) {
+    cursorStyle = 'crosshair';
+  } else if ((isShiftPressed && !isBrushActive && !isCropping) || straightenDragLine) {
     cursorStyle = 'crosshair';
   } else if (isCtrlPressed && !isBrushActive && !isCropping) {
     cursorStyle = isCropPanningRef.current ? 'grabbing' : 'move';

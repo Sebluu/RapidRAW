@@ -1,4 +1,5 @@
 {
+  "effectStudio": { "version": 1, "effects": [] },
   "activeTools": {},
   "aiDenoiseAmount": 100,
   "aiDenoiseDetail": 0,

@@ -652,6 +652,7 @@ pub fn run() {
             platform::viewer_window::get_viewer_info,
             platform::viewer_window::get_viewer_frame,
             render::commands::sample_hsl_mixer_area,
+            render::commands::sample_curve_tone,
             platform::android::resolve_android_content_uri_name,
             render::cache_utils::clear_session_caches,
             render::cache_utils::clear_image_caches,

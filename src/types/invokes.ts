@@ -95,6 +95,7 @@ export enum Invokes {
   MergeHdr = 'merge_hdr',
   TestAIConnectorConnection = 'test_ai_connector_connection',
   SampleHslMixerArea = 'sample_hsl_mixer_area',
+  SampleCurveTone = 'sample_curve_tone',
   GetDepthPreview = 'get_depth_preview',
   UpdateWgpuTransform = 'update_wgpu_transform',
   SetUiScale = 'set_ui_scale',
