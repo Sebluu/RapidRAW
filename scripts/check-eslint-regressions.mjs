@@ -21,7 +21,9 @@ function inspect(directory) {
   const cmd = path.join(directory, 'node_modules', 'eslint', 'bin', 'eslint.js');
   const existingFiles = files.filter((file) => existsSync(path.join(directory, file)));
   const proc = spawnSync(process.execPath, [cmd, '--format', 'json', ...existingFiles], {
-    cwd: directory, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+    cwd: directory,
+    encoding: 'utf8',
+    maxBuffer: 16 * 1024 * 1024,
   });
   if (proc.error || (proc.status !== 0 && proc.status !== 1)) {
     throw new Error(`ESLint execution failed: ${proc.error || proc.stderr}`);

@@ -36,7 +36,7 @@ function collect(directory) {
     errors.set(key, (errors.get(key) || 0) + 1);
   }
   if (result.status !== 0 && errors.size === 0) {
-    throw new Error(`TypeScript failed without parseable diagnostics in ${directory}: ${result.stdout.slice(0,1000)}`);
+    throw new Error(`TypeScript failed without parseable diagnostics in ${directory}: ${result.stdout.slice(0, 1000)}`);
   }
   return errors;
 }
