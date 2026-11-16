@@ -61,6 +61,7 @@ pub enum Group {
     Fog,
     LensBlur,
     Light,
+    Studio,
 }
 
 impl Group {
@@ -110,6 +111,17 @@ impl Group {
                     "lb_final",
                 ],
             ),
+            Group::Studio => (
+                include_str!("../../shaders/effect_studio.wgsl"),
+                &[
+                    "studio_normalize_down",
+                    "studio_normalize_range_h",
+                    "studio_normalize_range_v",
+                    "studio_normalize",
+                    "studio_feedback_pass",
+                    "studio_prism_pass",
+                ],
+            ),
             Group::Light => (
                 include_str!("../../shaders/light_effects.wgsl"),
                 &[
@@ -128,7 +140,7 @@ impl Group {
 pub struct ComputePipelines {
     layout: wgpu::PipelineLayout,
     bgl: wgpu::BindGroupLayout,
-    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; 6],
+    groups: [OnceLock<HashMap<&'static str, wgpu::ComputePipeline>>; 7],
     dummy_view: wgpu::TextureView,
     dummy_layers: wgpu::TextureView,
     dummy_f32: wgpu::TextureView,

@@ -1,0 +1,86 @@
+name: RapidRAW v1.7.0 feature validation
+on:
+  push:
+    branches: [test/color-harmonizer-v1.7.0, test/effect-studio-v1.7.0, test/combined-v1.7.0]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: v17-validation-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Feature behavior
+        run: |
+          if test -f scripts/test-color-harmony.mjs; then node scripts/test-color-harmony.mjs; fi
+          if test -f scripts/test-effect-studio.mjs; then node --test scripts/test-effect-studio.mjs; fi
+      - run: npm run typecheck
+      - name: ESLint regression comparison
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/upstream" 00379017cb14f3fc398e69fa14b33b60af07c588
+          ln -s "$GITHUB_WORKSPACE/node_modules" "$RUNNER_TEMP/upstream/node_modules"
+          node .github/review-tools/compare-lint.mjs "$GITHUB_WORKSPACE" "$RUNNER_TEMP/upstream"
+      - run: npm run build
+      - run: npm run i18n:runtime-check
+      - name: Changed-file formatting
+        run: |
+          git diff --name-only -z 00379017cb14f3fc398e69fa14b33b60af07c588 HEAD -- '*.ts' '*.tsx' '*.mjs' '*.json' '*.md' '*.yml' | xargs -0 -r npx prettier --check
+  rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    env:
+      CARGO_TARGET_DIR: /tmp/rapidraw-review-target
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> /tmp/rapidraw-review-target
+          cache-on-failure: true
+      - name: Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config patchelf libgphoto2-dev
+      - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - run: cargo check --locked --manifest-path src-tauri/Cargo.toml
+      - name: All-target and all-feature Clippy regression comparison
+        run: |
+          git worktree add --detach "$RUNNER_TEMP/upstream" 00379017cb14f3fc398e69fa14b33b60af07c588
+          python .github/review-tools/compare-clippy.py "$GITHUB_WORKSPACE" "$RUNNER_TEMP/upstream"
+  shader:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: stable
+          rustflags: ''
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tools/shader-validation
+      - run: cargo fmt --manifest-path tools/shader-validation/Cargo.toml -- --check
+      - run: cargo run --locked --manifest-path tools/shader-validation/Cargo.toml
+      - run: sudo apt-get update && sudo apt-get install -y mesa-vulkan-drivers
+      - name: GPU behavior
+        env:
+          WGPU_BACKEND: vulkan
+          XDG_RUNTIME_DIR: /tmp
+        run: cargo test --locked --manifest-path tools/shader-validation/Cargo.toml
